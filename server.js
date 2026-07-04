@@ -286,6 +286,14 @@ const gameManager = {
     if (winner) {
       game.status = 'finished';
       game.winner = playerId;
+      // 3秒后清理已结束的游戏
+      const gameId = game.id;
+      setTimeout(() => {
+        this.games.delete(gameId);
+        for (const [pid, gid] of this.playerGames) {
+          if (gid === gameId) this.playerGames.delete(pid);
+        }
+      }, 3000);
     }
 
     return { success: true, game, move: { row, col, color: player.color }, winnerName: winner ? player.name : null };
@@ -371,6 +379,7 @@ const gameManager = {
   getGameList() {
     const list = [];
     for (const [id, game] of this.games) {
+      if (game.status === 'finished') continue;
       list.push({
         id,
         type: game.type,
