@@ -288,7 +288,7 @@ const gameManager = {
       game.winner = playerId;
     }
 
-    return { success: true, game, move: { row, col, color: player.color } };
+    return { success: true, game, move: { row, col, color: player.color }, winnerName: winner ? player.name : null };
   },
 
   // 五子棋胜负检测
@@ -715,9 +715,15 @@ wss.on('connection', async (ws, req) => {
       if (parsedMessage.type === 'game_join') {
         const result = gameManager.joinGame(parsedMessage.gameId, clientId, userInfo.username);
         if (result.success) {
+          // 查找赢家用户名
+          let winnerName = null;
+          if (result.game.winner) {
+            const w = result.game.players.find(p => p.id === result.game.winner);
+            winnerName = w ? w.name : null;
+          }
           gameManager.broadcastToGame(parsedMessage.gameId, {
             type: 'game_start',
-            game: { id: result.game.id, type: result.game.type, players: result.game.players, board: result.game.board, currentTurn: result.game.currentTurn }
+            game: { id: result.game.id, type: result.game.type, players: result.game.players, board: result.game.board, currentTurn: result.game.currentTurn, winner: winnerName }
           });
           gameManager.broadcastToGame(parsedMessage.gameId, { type: 'game_list', games: gameManager.getGameList() });
         } else {
@@ -729,9 +735,15 @@ wss.on('connection', async (ws, req) => {
       if (parsedMessage.type === 'game_spectate') {
         const result = gameManager.spectateGame(parsedMessage.gameId, clientId, userInfo.username);
         if (result.success) {
+          // 查找赢家用户名
+          let winnerName = null;
+          if (result.game.winner) {
+            const w = result.game.players.find(p => p.id === result.game.winner);
+            winnerName = w ? w.name : null;
+          }
           ws.send(JSON.stringify({
             type: 'game_start',
-            game: { id: result.game.id, type: result.game.type, players: result.game.players, board: result.game.board, currentTurn: result.game.currentTurn, winner: result.game.winner }
+            game: { id: result.game.id, type: result.game.type, players: result.game.players, board: result.game.board, currentTurn: result.game.currentTurn, winner: winnerName }
           }));
           // 通知玩家有新观战者
           gameManager.broadcastToGame(parsedMessage.gameId, {
@@ -753,7 +765,7 @@ wss.on('connection', async (ws, req) => {
             gameId: parsedMessage.gameId,
             move: result.move,
             currentTurn: result.game.currentTurn,
-            winner: result.game.winner || null,
+            winner: result.winnerName || null,
             status: result.game.status
           });
         } else {

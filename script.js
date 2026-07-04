@@ -479,7 +479,6 @@ function handleGomokuMove(data) {
   const cell = cells[idx];
   if (cell) {
     cell.classList.add(move.color);
-    // 标记最后一手
     if (lastMoveCell) lastMoveCell.classList.remove('last-move');
     cell.classList.add('last-move');
     lastMoveCell = cell;
@@ -488,11 +487,12 @@ function handleGomokuMove(data) {
 }
 
 // 更新回合/胜负信息
-function updateTurnInfo(currentTurn, winner) {
+function updateTurnInfo(currentTurn, winnerId) {
   const el = document.getElementById('gomokuTurn');
-  if (winner) {
-    const winnerPlayer = winner === myGameColor ? '你赢了！' : '你输了';
-    el.textContent = `🎉 游戏结束 - ${winnerPlayer}`;
+  if (winnerId) {
+    // 判断赢家是谁
+    const isMe = (winnerId === currentUser);
+    el.textContent = isMe ? '🎉 你赢了！' : '😢 你输了';
     el.style.color = '#e91e63';
   } else if (myGameColor) {
     const isMyTurn = currentTurn === myGameColor;
