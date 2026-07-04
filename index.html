@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>局域网聊天室</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <h1>局域网聊天室</h1>
+    <div class="login" id="loginForm">
+      <form>
+        <input type="text" id="username" placeholder="请输入用户名">
+        <button type="submit">进入聊天室</button>
+      </form>
+    </div>
+    <div class="chat hidden" id="chatContainer">
+      <div class="messages"></div>
+      <div class="input-area">
+        <input type="text" id="messageInput" placeholder="输入消息...">
+        <input type="file" id="imageInput" accept="image/*" style="display: none;">
+        <button id="imageBtn">图片</button>
+        <button id="sendBtn">发送</button>
+      </div>
+    </div>
+  </div>
+  <script src="script.js"></script>
+</body>
+</html>
