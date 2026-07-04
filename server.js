@@ -783,6 +783,98 @@ wss.on('connection', async (ws, req) => {
         ws.send(JSON.stringify({ type: 'game_players', players: gameManager.getOnlinePlayerList(clientId) }));
         return;
       }
+
+      // ===== 邀请对战 =====
+      if (parsedMessage.type === 'game_invite') {
+        const targetName = parsedMessage.targetUsername;
+        // 找到被邀请人的 WebSocket
+        let targetWs = null;
+        let targetId = null;
+        for (const [id, info] of admin.onlineUsers.entries()) {
+          if (info.username === targetName) {
+            targetId = id;
+            wss.clients.forEach(client => {
+              if (client.id === id && client.readyState === WebSocket.OPEN) {
+                targetWs = client;
+              }
+            });
+            break;
+          }
+        }
+        if (!targetWs) {
+          ws.send(JSON.stringify({ type: 'game_error', error: '用户不在线' }));
+          return;
+        }
+        // 创建游戏
+        const game = gameManager.createGame(parsedMessage.gameType, clientId, userInfo.username);
+        // 保存邀请信息
+        game.inviteeId = targetId;
+        game.inviteeName = targetName;
+        // 发送邀请给被邀请人
+        targetWs.send(JSON.stringify({
+          type: 'game_invite_received',
+          gameId: game.id,
+          gameType: game.type,
+          fromUsername: userInfo.username
+        }));
+        // 通知邀请人已发送
+        ws.send(JSON.stringify({
+          type: 'game_invite_sent',
+          gameId: game.id,
+          targetUsername: targetName
+        }));
+        gameManager.broadcastToGame(game.id, { type: 'game_list', games: gameManager.getGameList() });
+        return;
+      }
+
+      // 被邀请人接受邀请
+      if (parsedMessage.type === 'game_invite_accept') {
+        const game = gameManager.games.get(parsedMessage.gameId);
+        if (!game) {
+          ws.send(JSON.stringify({ type: 'game_error', error: '游戏不存在或已取消' }));
+          return;
+        }
+        // 加入游戏
+        const result = gameManager.joinGame(parsedMessage.gameId, clientId, userInfo.username);
+        if (result.success) {
+          // 通知所有人游戏开始
+          gameManager.broadcastToGame(parsedMessage.gameId, {
+            type: 'game_start',
+            game: { id: result.game.id, type: result.game.type, players: result.game.players, board: result.game.board, currentTurn: result.game.currentTurn }
+          });
+          gameManager.broadcastToGame(parsedMessage.gameId, { type: 'game_list', games: gameManager.getGameList() });
+        } else {
+          ws.send(JSON.stringify({ type: 'game_error', error: result.error }));
+        }
+        return;
+      }
+
+      // 被邀请人拒绝邀请
+      if (parsedMessage.type === 'game_invite_decline') {
+        const game = gameManager.games.get(parsedMessage.gameId);
+        if (game) {
+          // 通知邀请人被拒绝
+          const creatorWs = wss.clients.values().next().value; // fallback
+          for (const [id, info] of admin.onlineUsers.entries()) {
+            if (info.username === game.players[0]?.name) {
+              wss.clients.forEach(client => {
+                if (client.id === id && client.readyState === WebSocket.OPEN) {
+                  client.send(JSON.stringify({
+                    type: 'game_invite_declined',
+                    gameId: game.id,
+                    targetUsername: userInfo.username
+                  }));
+                }
+              });
+              break;
+            }
+          }
+          // 删除游戏
+          gameManager.games.delete(parsedMessage.gameId);
+          gameManager.broadcastToGame(parsedMessage.gameId, { type: 'game_list', games: gameManager.getGameList() });
+        }
+        return;
+      }
       
       // 过滤屏蔽词
       if (parsedMessage.content && parsedMessage.type !== 'image') {

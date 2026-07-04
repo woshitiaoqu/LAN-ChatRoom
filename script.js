@@ -125,6 +125,12 @@ function connectWebSocket() {
       alert(data.error);
     } else if (data.type === 'game_left') {
       closeGomoku();
+    } else if (data.type === 'game_invite_received') {
+      showInviteModal(data);
+    } else if (data.type === 'game_invite_sent') {
+      alert('邀请已发送，等待 ' + data.targetUsername + ' 响应...');
+    } else if (data.type === 'game_invite_declined') {
+      alert(data.targetUsername + ' 拒绝了你的邀请');
     } else {
       displayMessage(data);
     }
@@ -532,3 +538,53 @@ function closeGomoku() {
   lastMoveCell = null;
   document.getElementById('gomokuChatMessages').innerHTML = '';
 }
+
+// ===== 邀请对战 =====
+let pendingInvite = null;
+const inviteModal = document.getElementById('inviteModal');
+const inviteAccept = document.getElementById('inviteAccept');
+const inviteDecline = document.getElementById('inviteDecline');
+
+// 邀请玩家
+function invitePlayer(username) {
+  if (!selectedGameType) { alert('请先选择游戏类型'); return; }
+  socket.send(JSON.stringify({
+    type: 'game_invite',
+    gameType: selectedGameType,
+    targetUsername: username
+  }));
+  gameLobby.classList.add('hidden');
+}
+
+// 收到邀请
+function showInviteModal(data) {
+  pendingInvite = data;
+  const gameNames = { gomoku: '五子棋' };
+  document.getElementById('inviteText').textContent = (gameNames[data.gameType] || data.gameType) + '对战！';
+  document.getElementById('inviteFrom').textContent = data.fromUsername + ' 邀请你';
+  inviteModal.classList.remove('hidden');
+}
+
+// 接受邀请
+inviteAccept.addEventListener('click', () => {
+  if (pendingInvite) {
+    socket.send(JSON.stringify({
+      type: 'game_invite_accept',
+      gameId: pendingInvite.gameId
+    }));
+    inviteModal.classList.add('hidden');
+    pendingInvite = null;
+  }
+});
+
+// 拒绝邀请
+inviteDecline.addEventListener('click', () => {
+  if (pendingInvite) {
+    socket.send(JSON.stringify({
+      type: 'game_invite_decline',
+      gameId: pendingInvite.gameId
+    }));
+    inviteModal.classList.add('hidden');
+    pendingInvite = null;
+  }
+});
