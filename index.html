@@ -21,10 +21,72 @@
         <input type="text" id="messageInput" placeholder="输入消息...">
         <input type="file" id="imageInput" accept="image/*" style="display: none;">
         <button id="imageBtn">图片</button>
+        <button id="gameBtn">🎮 游戏</button>
         <button id="sendBtn">发送</button>
       </div>
     </div>
   </div>
+
+  <!-- 游戏大厅弹窗 -->
+  <div class="modal hidden" id="gameLobby">
+    <div class="modal-content game-lobby">
+      <div class="modal-header">
+        <h2>🎮 游戏大厅</h2>
+        <button class="modal-close" id="lobbyClose">✕</button>
+      </div>
+      <div class="game-section">
+        <h3>选择游戏</h3>
+        <div class="game-list">
+          <div class="game-card" data-game="gomoku">
+            <div class="game-icon">⚫</div>
+            <div class="game-name">五子棋</div>
+            <div class="game-desc">经典黑白棋，五子连珠获胜</div>
+          </div>
+        </div>
+        <div style="margin-top: 10px; text-align: right;">
+          <button class="game-btn-create" id="createGameBtn">创建房间</button>
+        </div>
+      </div>
+      <div class="game-section">
+        <h3>进行中的游戏</h3>
+        <div id="activeGames" class="active-games">
+          <p class="empty-tip">暂无进行中的游戏</p>
+        </div>
+      </div>
+      <div class="game-section">
+        <h3>选择对手</h3>
+        <div id="playerList" class="player-list">
+          <p class="empty-tip">加载中...</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 五子棋棋盘弹窗 -->
+  <div class="modal hidden" id="gomokuModal">
+    <div class="modal-content gomoku-container">
+      <div class="modal-header">
+        <h2 id="gomokuTitle">⚫ 五子棋</h2>
+        <button class="modal-close" id="gomokuClose">✕</button>
+      </div>
+      <div class="gomoku-info">
+        <span id="gomokuTurn"></span>
+        <span id="gomokuSpectators">观战: 0人</span>
+      </div>
+      <div class="gomoku-board" id="gomokuBoard"></div>
+      <div class="gomoku-chat">
+        <div class="gomoku-chat-messages" id="gomokuChatMessages"></div>
+        <div class="gomoku-chat-input">
+          <input type="text" id="gomokuChatInput" placeholder="观战聊天...">
+          <button id="gomokuChatSend">发送</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 小窗模式切换按钮 -->
+  <button class="stealth-toggle" id="stealthBtn" title="小窗模式 (Ctrl+Shift+H)">📝</button>
+
   <script src="script.js"></script>
 </body>
 </html>

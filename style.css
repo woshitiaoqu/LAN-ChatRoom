@@ -127,3 +127,348 @@ button:hover {
 .logout-btn:hover {
   background-color: #c82333;
 }
+
+/* ===== 小窗模式 ===== */
+body.mini-mode {
+  padding: 0 !important;
+  margin: 0 !important;
+  overflow: hidden;
+}
+body.mini-mode .container {
+  max-width: 100% !important;
+  padding: 5px !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+  margin: 0 !important;
+}
+body.mini-mode h1 {
+  display: none !important;
+}
+body.mini-mode .login {
+  display: none !important;
+}
+body.mini-mode .logout-btn {
+  display: none !important;
+}
+body.mini-mode .chat {
+  display: block !important;
+}
+body.mini-mode .messages {
+  height: calc(100vh - 55px) !important;
+  border: none !important;
+}
+body.mini-mode .input-area {
+  padding: 0 5px 5px 5px;
+}
+
+.stealth-toggle {
+  position: fixed;
+  bottom: 15px;
+  right: 15px;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  font-size: 18px;
+  border-radius: 50%;
+  background: rgba(0,0,0,0.15);
+  border: none;
+  cursor: pointer;
+  z-index: 9999;
+  opacity: 0.4;
+  transition: opacity 0.2s;
+}
+.stealth-toggle:hover {
+  opacity: 1;
+}
+body.mini-mode .stealth-toggle {
+  display: none !important;
+}
+
+/* ===== 游戏按钮 ===== */
+#gameBtn {
+  background-color: #ff9800;
+}
+#gameBtn:hover {
+  background-color: #e68a00;
+}
+
+/* ===== 弹窗 ===== */
+.modal {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100vw; height: 100vh;
+  background: rgba(0,0,0,0.5);
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.modal.hidden {
+  display: none;
+}
+.modal-content {
+  background: #fff;
+  border-radius: 10px;
+  width: 90%;
+  max-width: 600px;
+  max-height: 85vh;
+  overflow-y: auto;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.3);
+}
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px 20px;
+  border-bottom: 1px solid #eee;
+  position: sticky;
+  top: 0;
+  background: #fff;
+  border-radius: 10px 10px 0 0;
+  z-index: 1;
+}
+.modal-header h2 {
+  margin: 0;
+  font-size: 18px;
+}
+.modal-close {
+  background: none;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  color: #666;
+  padding: 0 5px;
+}
+.modal-close:hover {
+  color: #333;
+}
+
+/* ===== 游戏大厅 ===== */
+.game-lobby {
+  padding: 0;
+}
+.game-section {
+  padding: 15px 20px;
+  border-bottom: 1px solid #f0f0f0;
+}
+.game-section h3 {
+  margin: 0 0 10px 0;
+  font-size: 14px;
+  color: #666;
+}
+.game-list {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.game-card {
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 15px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  min-width: 120px;
+}
+.game-card:hover {
+  border-color: #007bff;
+  background: #f0f7ff;
+}
+.game-card.selected {
+  border-color: #007bff;
+  background: #e3f2fd;
+}
+.game-icon {
+  font-size: 32px;
+  margin-bottom: 5px;
+}
+.game-name {
+  font-weight: bold;
+  font-size: 14px;
+}
+.game-desc {
+  font-size: 11px;
+  color: #999;
+  margin-top: 3px;
+}
+
+/* 进行中的游戏 */
+.active-games {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.active-game-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 12px;
+  background: #f9f9f9;
+  border-radius: 6px;
+  border: 1px solid #eee;
+}
+.active-game-item .game-info {
+  font-size: 13px;
+}
+.active-game-item .game-info strong {
+  color: #007bff;
+}
+.game-btn-join {
+  padding: 5px 12px;
+  font-size: 12px;
+  background: #28a745;
+}
+.game-btn-join:hover {
+  background: #218838;
+}
+.game-btn-spectate {
+  padding: 5px 12px;
+  font-size: 12px;
+  background: #6c757d;
+}
+.game-btn-spectate:hover {
+  background: #5a6268;
+}
+.game-btn-create {
+  padding: 8px 20px;
+  font-size: 13px;
+  background: #ff9800;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.game-btn-create:hover {
+  background: #e68a00;
+}
+
+/* 玩家列表 */
+.player-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.player-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: #f9f9f9;
+  border-radius: 6px;
+}
+.player-item .name {
+  font-size: 13px;
+  font-weight: bold;
+}
+.game-btn-invite {
+  padding: 4px 10px;
+  font-size: 12px;
+}
+.empty-tip {
+  color: #999;
+  font-size: 13px;
+  text-align: center;
+  padding: 10px;
+  margin: 0;
+}
+
+/* ===== 五子棋 ===== */
+.gomoku-container {
+  padding: 0;
+  max-width: 520px;
+}
+.gomoku-info {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 20px;
+  font-size: 13px;
+  color: #666;
+  border-bottom: 1px solid #eee;
+}
+.gomoku-board {
+  display: grid;
+  grid-template-columns: repeat(15, 1fr);
+  gap: 0;
+  padding: 15px;
+  background: #dcb35c;
+  user-select: none;
+}
+.gomoku-cell {
+  width: 100%;
+  aspect-ratio: 1;
+  border: 1px solid #8b6914;
+  position: relative;
+  cursor: pointer;
+  box-sizing: border-box;
+}
+.gomoku-cell:hover {
+  background: rgba(255,255,255,0.2);
+}
+.gomoku-cell.black::after,
+.gomoku-cell.white::after {
+  content: '';
+  position: absolute;
+  top: 10%; left: 10%;
+  width: 80%; height: 80%;
+  border-radius: 50%;
+}
+.gomoku-cell.black::after {
+  background: radial-gradient(circle at 35% 35%, #555, #000);
+}
+.gomoku-cell.white::after {
+  background: radial-gradient(circle at 35% 35%, #fff, #ccc);
+  border: 1px solid #999;
+}
+.gomoku-cell.last-move {
+  box-shadow: inset 0 0 0 2px #ff0000;
+}
+
+/* 观战聊天 */
+.gomoku-chat {
+  border-top: 1px solid #eee;
+  max-height: 150px;
+  display: flex;
+  flex-direction: column;
+}
+.gomoku-chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 12px;
+  font-size: 12px;
+  max-height: 100px;
+}
+.gomoku-chat-messages .chat-msg {
+  margin-bottom: 3px;
+}
+.gomoku-chat-messages .chat-name {
+  font-weight: bold;
+  color: #007bff;
+}
+.gomoku-chat-messages .chat-time {
+  color: #999;
+  font-size: 10px;
+  margin-left: 5px;
+}
+.gomoku-chat-input {
+  display: flex;
+  padding: 6px;
+  gap: 4px;
+  border-top: 1px solid #eee;
+}
+.gomoku-chat-input input {
+  flex: 1;
+  padding: 6px 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 12px;
+  outline: none;
+}
+.gomoku-chat-input button {
+  padding: 6px 12px;
+  font-size: 12px;
+  background: #007bff;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}

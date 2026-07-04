@@ -99,13 +99,32 @@ function connectWebSocket() {
         displayMessage(message);
       });
     } else if (data.type === 'force_logout') {
-      // 服务器强制登出（未注册）
       alert(data.reason || '请重新登录');
       localStorage.removeItem('chatUsername');
       localStorage.removeItem('chatClientId');
       window.location.href = window.location.pathname + '?t=' + Date.now();
     } else if (data.type === 'error') {
       alert(data.content);
+    } else if (data.type === 'game_list') {
+      renderActiveGames(data.games);
+    } else if (data.type === 'game_players') {
+      renderPlayerList(data.players);
+    } else if (data.type === 'game_created') {
+      currentGameId = data.game.id;
+      openGomoku(data.game);
+    } else if (data.type === 'game_start') {
+      currentGameId = data.game.id;
+      openGomoku(data.game);
+    } else if (data.type === 'game_moved') {
+      handleGomokuMove(data);
+    } else if (data.type === 'game_chat') {
+      addGomokuChat(data);
+    } else if (data.type === 'game_spectator_count') {
+      document.getElementById('gomokuSpectators').textContent = `观战: ${data.count}人`;
+    } else if (data.type === 'game_error') {
+      alert(data.error);
+    } else if (data.type === 'game_left') {
+      closeGomoku();
     } else {
       displayMessage(data);
     }
@@ -230,4 +249,286 @@ function addSystemMessage(content) {
     time: new Date().toLocaleTimeString()
   };
   displayMessage(message);
+}
+
+// ===== 小窗模式 =====
+const stealthBtn = document.getElementById('stealthBtn');
+let miniActive = false;
+let savedState = {};
+
+function toggleMini() {
+  miniActive = !miniActive;
+  const container = document.querySelector('.container');
+  const chat = document.querySelector('.chat');
+  const h1 = document.querySelector('h1');
+  const login = document.querySelector('.login');
+  const logoutBtn = document.querySelector('.logout-btn');
+
+  if (miniActive) {
+    // 保存当前状态
+    savedState = {
+      width: window.outerWidth,
+      height: window.outerHeight,
+      x: window.screenX,
+      y: window.screenY
+    };
+
+    document.body.classList.add('mini-mode');
+    document.title = '聊天';
+
+    // 尝试缩小浏览器窗口
+    try {
+      window.resizeTo(350, 450);
+      window.moveTo(
+        window.screen.availWidth - 370,
+        window.screen.availHeight - 470
+      );
+    } catch(e) {}
+  } else {
+    document.body.classList.remove('mini-mode');
+    document.title = '局域网聊天室';
+
+    // 恢复窗口大小
+    try {
+      window.resizeTo(savedState.width, savedState.height);
+      window.moveTo(savedState.x, savedState.y);
+    } catch(e) {}
+  }
+}
+
+// Ctrl+Shift+H 切换小窗
+document.addEventListener('keydown', (e) => {
+  if (e.ctrlKey && e.shiftKey && e.key === 'H') {
+    e.preventDefault();
+    toggleMini();
+  }
+  if (e.key === 'Escape' && miniActive) {
+    toggleMini();
+  }
+});
+
+stealthBtn.addEventListener('click', toggleMini);
+
+// ===== 游戏系统 =====
+let currentGameId = null;
+let myGameColor = null;
+let selectedGameType = null;
+let lastMoveCell = null;
+
+const gameLobby = document.getElementById('gameLobby');
+const gomokuModal = document.getElementById('gomokuModal');
+const gameBtn = document.getElementById('gameBtn');
+const lobbyClose = document.getElementById('lobbyClose');
+const gomokuClose = document.getElementById('gomokuClose');
+
+// 打开游戏大厅
+gameBtn.addEventListener('click', () => {
+  gameLobby.classList.remove('hidden');
+  socket.send(JSON.stringify({ type: 'game_list' }));
+  socket.send(JSON.stringify({ type: 'game_players' }));
+});
+
+lobbyClose.addEventListener('click', () => gameLobby.classList.add('hidden'));
+gomokuClose.addEventListener('click', () => {
+  if (currentGameId) {
+    socket.send(JSON.stringify({ type: 'game_leave', gameId: currentGameId }));
+  }
+  closeGomoku();
+});
+
+// 选择游戏
+document.querySelectorAll('.game-card').forEach(card => {
+  card.addEventListener('click', () => {
+    document.querySelectorAll('.game-card').forEach(c => c.classList.remove('selected'));
+    card.classList.add('selected');
+    selectedGameType = card.dataset.game;
+  });
+});
+
+// 创建房间按钮
+document.getElementById('createGameBtn').addEventListener('click', () => {
+  if (!selectedGameType) { alert('请先选择游戏类型'); return; }
+  createGame(selectedGameType);
+});
+
+// 渲染进行中的游戏列表
+function renderActiveGames(games) {
+  const container = document.getElementById('activeGames');
+  if (!games || games.length === 0) {
+    container.innerHTML = '<p class="empty-tip">暂无进行中的游戏</p>';
+    return;
+  }
+  container.innerHTML = games.map(g => `
+    <div class="active-game-item">
+      <div class="game-info">
+        <strong>${g.type === 'gomoku' ? '⚫ 五子棋' : g.type}</strong>
+        - ${g.players.join(' vs ')}
+        ${g.status === 'waiting' ? '(等待加入)' : '(进行中)'}
+        ${g.spectatorCount > 0 ? ` 观战:${g.spectatorCount}人` : ''}
+      </div>
+      <div>
+        ${g.status === 'waiting' ? `<button class="game-btn-join" onclick="joinGame('${g.id}')">加入</button>` : ''}
+        <button class="game-btn-spectate" onclick="spectateGame('${g.id}')">观战</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+// 渲染在线玩家列表
+function renderPlayerList(players) {
+  const container = document.getElementById('playerList');
+  if (!players || players.length === 0) {
+    container.innerHTML = '<p class="empty-tip">暂无在线用户</p>';
+    return;
+  }
+  container.innerHTML = players.map(p => `
+    <div class="player-item">
+      <span class="name">${p.username}</span>
+      <button class="game-btn-invite" onclick="invitePlayer('${p.username}')">邀请对战</button>
+    </div>
+  `).join('');
+}
+
+// 创建游戏
+function createGame(gameType) {
+  if (!gameType) { alert('请先选择游戏'); return; }
+  socket.send(JSON.stringify({ type: 'game_create', gameType }));
+  gameLobby.classList.add('hidden');
+}
+
+// 加入游戏
+function joinGame(gameId) {
+  socket.send(JSON.stringify({ type: 'game_join', gameId }));
+  gameLobby.classList.add('hidden');
+}
+
+// 观战
+function spectateGame(gameId) {
+  socket.send(JSON.stringify({ type: 'game_spectate', gameId }));
+  gameLobby.classList.add('hidden');
+}
+
+// 邀请玩家（创建游戏并等待）
+function invitePlayer(username) {
+  if (!selectedGameType) { alert('请先选择游戏类型'); return; }
+  socket.send(JSON.stringify({ type: 'game_create', gameType: selectedGameType }));
+  gameLobby.classList.add('hidden');
+}
+
+// 打开五子棋界面
+function openGomoku(game) {
+  gomokuModal.classList.remove('hidden');
+  gameLobby.classList.add('hidden');
+
+  // 判断我的颜色
+  const me = game.players.find(p => p.name === currentUser);
+  myGameColor = me ? me.color : null;
+
+  // 更新标题
+  const title = myGameColor
+    ? `五子棋 (${myGameColor === 'black' ? '⚫ 黑棋' : '⚪ 白棋'})`
+    : '五子棋 (观战)';
+  document.getElementById('gomokuTitle').textContent = title;
+
+  // 渲染棋盘
+  renderGomokuBoard(game.board || Array(15).fill(null).map(() => Array(15).fill(null)));
+
+  // 更新回合信息
+  updateTurnInfo(game.currentTurn, game.winner);
+}
+
+// 渲染棋盘
+function renderGomokuBoard(board) {
+  const container = document.getElementById('gomokuBoard');
+  container.innerHTML = '';
+  for (let r = 0; r < 15; r++) {
+    for (let c = 0; c < 15; c++) {
+      const cell = document.createElement('div');
+      cell.className = 'gomoku-cell';
+      if (board[r][c]) cell.classList.add(board[r][c]);
+      cell.dataset.row = r;
+      cell.dataset.col = c;
+      cell.addEventListener('click', () => onGomokuClick(r, c));
+      container.appendChild(cell);
+    }
+  }
+}
+
+// 点击棋盘
+function onGomokuClick(row, col) {
+  if (!currentGameId || !myGameColor) return;
+  socket.send(JSON.stringify({
+    type: 'game_move',
+    gameId: currentGameId,
+    row,
+    col
+  }));
+}
+
+// 处理下棋结果
+function handleGomokuMove(data) {
+  const { move, currentTurn, winner, status } = data;
+  const cells = document.querySelectorAll('.gomoku-cell');
+  const idx = move.row * 15 + move.col;
+  const cell = cells[idx];
+  if (cell) {
+    cell.classList.add(move.color);
+    // 标记最后一手
+    if (lastMoveCell) lastMoveCell.classList.remove('last-move');
+    cell.classList.add('last-move');
+    lastMoveCell = cell;
+  }
+  updateTurnInfo(currentTurn, winner);
+}
+
+// 更新回合/胜负信息
+function updateTurnInfo(currentTurn, winner) {
+  const el = document.getElementById('gomokuTurn');
+  if (winner) {
+    const winnerPlayer = winner === myGameColor ? '你赢了！' : '你输了';
+    el.textContent = `🎉 游戏结束 - ${winnerPlayer}`;
+    el.style.color = '#e91e63';
+  } else if (myGameColor) {
+    const isMyTurn = currentTurn === myGameColor;
+    el.textContent = isMyTurn ? '轮到你了' : '等待对手...';
+    el.style.color = isMyTurn ? '#4caf50' : '#999';
+  } else {
+    el.textContent = currentTurn === 'black' ? '⚫ 黑棋落子' : '⚪ 白棋落子';
+    el.style.color = '#666';
+  }
+}
+
+// 五子棋聊天
+const gomokuChatInput = document.getElementById('gomokuChatInput');
+const gomokuChatSend = document.getElementById('gomokuChatSend');
+
+gomokuChatSend.addEventListener('click', sendGomokuChat);
+gomokuChatInput.addEventListener('keypress', (e) => {
+  if (e.key === 'Enter') sendGomokuChat();
+});
+
+function sendGomokuChat() {
+  const content = gomokuChatInput.value.trim();
+  if (content && currentGameId) {
+    socket.send(JSON.stringify({ type: 'game_chat', gameId: currentGameId, content }));
+    gomokuChatInput.value = '';
+  }
+}
+
+function addGomokuChat(data) {
+  const container = document.getElementById('gomokuChatMessages');
+  const div = document.createElement('div');
+  div.className = 'chat-msg';
+  div.innerHTML = `<span class="chat-name">${data.username}</span><span class="chat-time">${data.time}</span> ${data.content}`;
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+}
+
+// 关闭五子棋
+function closeGomoku() {
+  gomokuModal.classList.add('hidden');
+  currentGameId = null;
+  myGameColor = null;
+  lastMoveCell = null;
+  document.getElementById('gomokuChatMessages').innerHTML = '';
 }

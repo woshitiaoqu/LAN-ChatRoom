@@ -211,6 +211,189 @@ let connectionCount = 0;
 const activeConnections = new Set();
 const serverStartTime = Date.now();
 
+// ==================== 游戏管理模块 ====================
+const gameManager = {
+  games: new Map(),       // gameId → game info
+  playerGames: new Map(), // clientId → gameId
+  nextGameId: 1,
+
+  // 创建游戏
+  createGame(type, creatorId, creatorName) {
+    const gameId = 'game_' + this.nextGameId++;
+    const game = {
+      id: gameId,
+      type,
+      status: 'waiting', // waiting, playing, finished
+      players: [{ id: creatorId, name: creatorName, color: 'black' }],
+      spectators: new Map(),
+      board: null,
+      currentTurn: null,
+      winner: null,
+      createdAt: Date.now()
+    };
+
+    if (type === 'gomoku') {
+      game.board = Array(15).fill(null).map(() => Array(15).fill(null));
+      game.currentTurn = 'black';
+    }
+
+    this.games.set(gameId, game);
+    this.playerGames.set(creatorId, gameId);
+    return game;
+  },
+
+  // 加入游戏
+  joinGame(gameId, playerId, playerName) {
+    const game = this.games.get(gameId);
+    if (!game) return { success: false, error: '游戏不存在' };
+    if (game.status !== 'waiting') return { success: false, error: '游戏已开始' };
+    if (game.players.length >= 2) return { success: false, error: '游戏已满' };
+    if (game.players[0].id === playerId) return { success: false, error: '不能跟自己下' };
+
+    game.players.push({ id: playerId, name: playerName, color: 'white' });
+    game.status = 'playing';
+    this.playerGames.set(playerId, gameId);
+    return { success: true, game };
+  },
+
+  // 观战
+  spectateGame(gameId, playerId, playerName) {
+    const game = this.games.get(gameId);
+    if (!game) return { success: false, error: '游戏不存在' };
+    if (game.players.find(p => p.id === playerId)) return { success: false, error: '你是玩家' };
+    game.spectators.set(playerId, playerName);
+    this.playerGames.set(playerId, gameId);
+    return { success: true, game };
+  },
+
+  // 下棋（五子棋）
+  makeMove(gameId, playerId, row, col) {
+    const game = this.games.get(gameId);
+    if (!game || game.type !== 'gomoku') return { success: false, error: '游戏无效' };
+    if (game.status !== 'playing') return { success: false, error: '游戏未开始' };
+
+    const player = game.players.find(p => p.id === playerId);
+    if (!player) return { success: false, error: '你不是玩家' };
+    if (player.color !== game.currentTurn) return { success: false, error: '还没轮到你' };
+    if (row < 0 || row >= 15 || col < 0 || col >= 15) return { success: false, error: '位置无效' };
+    if (game.board[row][col] !== null) return { success: false, error: '此位置已有棋子' };
+
+    game.board[row][col] = player.color;
+    game.currentTurn = game.currentTurn === 'black' ? 'white' : 'black';
+
+    // 检查胜负
+    const winner = this.checkGomokuWinner(game.board, row, col, player.color);
+    if (winner) {
+      game.status = 'finished';
+      game.winner = playerId;
+    }
+
+    return { success: true, game, move: { row, col, color: player.color } };
+  },
+
+  // 五子棋胜负检测
+  checkGomokuWinner(board, row, col, color) {
+    const directions = [[0,1],[1,0],[1,1],[1,-1]];
+    for (const [dr, dc] of directions) {
+      let count = 1;
+      for (let i = 1; i < 5; i++) {
+        const r = row + dr*i, c = col + dc*i;
+        if (r >= 0 && r < 15 && c >= 0 && c < 15 && board[r][c] === color) count++;
+        else break;
+      }
+      for (let i = 1; i < 5; i++) {
+        const r = row - dr*i, c = col - dc*i;
+        if (r >= 0 && r < 15 && c >= 0 && c < 15 && board[r][c] === color) count++;
+        else break;
+      }
+      if (count >= 5) return color;
+    }
+    return null;
+  },
+
+  // 离开游戏
+  leaveGame(playerId) {
+    const gameId = this.playerGames.get(playerId);
+    if (!gameId) return;
+    const game = this.games.get(gameId);
+    if (!game) return;
+
+    this.playerGames.delete(playerId);
+
+    // 如果是玩家，通知对手
+    const playerIdx = game.players.findIndex(p => p.id === playerId);
+    if (playerIdx !== -1) {
+      game.players.splice(playerIdx, 1);
+      if (game.status === 'playing') {
+        game.status = 'finished';
+        game.winner = game.players[0]?.id || null;
+      }
+      // 通知房间内所有人
+      this.broadcastToGame(gameId, { type: 'game_left', gameId, playerId });
+      // 如果房间空了，删除
+      if (game.players.length === 0 && game.spectators.size === 0) {
+        this.games.delete(gameId);
+      }
+    } else {
+      game.spectators.delete(playerId);
+    }
+  },
+
+  // 游戏内聊天
+  gameChat(gameId, playerName, content) {
+    this.broadcastToGame(gameId, {
+      type: 'game_chat',
+      gameId,
+      username: playerName,
+      content,
+      time: new Date().toLocaleTimeString()
+    });
+  },
+
+  // 向房间内所有人发消息
+  broadcastToGame(gameId, message) {
+    const game = this.games.get(gameId);
+    if (!game) return;
+    const data = JSON.stringify(message);
+    wss.clients.forEach(client => {
+      if (client.readyState === WebSocket.OPEN) {
+        const info = admin.onlineUsers.get(client.id);
+        if (!info) return;
+        // 是玩家或观战者
+        if (game.players.find(p => p.id === client.id) || game.spectators.has(client.id)) {
+          client.send(data);
+        }
+      }
+    });
+  },
+
+  // 获取所有游戏列表
+  getGameList() {
+    const list = [];
+    for (const [id, game] of this.games) {
+      list.push({
+        id,
+        type: game.type,
+        status: game.status,
+        players: game.players.map(p => p.name),
+        spectatorCount: game.spectators.size
+      });
+    }
+    return list;
+  },
+
+  // 获取在线用户列表（供选择对手）
+  getOnlinePlayerList(excludeId) {
+    const list = [];
+    for (const [id, info] of admin.onlineUsers.entries()) {
+      if (info.username && id !== excludeId) {
+        list.push({ id, username: info.username });
+      }
+    }
+    return list;
+  }
+};
+
 // ==================== 新增：管理员功能模块 ====================
 const admin = {
   onlineUsers: new Map(),
@@ -520,6 +703,86 @@ wss.on('connection', async (ws, req) => {
       if (!userInfo.username && parsedMessage.username) {
         userInfo.username = parsedMessage.username;
       }
+
+      // ===== 游戏消息处理 =====
+      if (parsedMessage.type === 'game_create') {
+        const game = gameManager.createGame(parsedMessage.gameType, clientId, userInfo.username);
+        gameManager.broadcastToGame(game.id, { type: 'game_list', games: gameManager.getGameList() });
+        ws.send(JSON.stringify({ type: 'game_created', game }));
+        return;
+      }
+
+      if (parsedMessage.type === 'game_join') {
+        const result = gameManager.joinGame(parsedMessage.gameId, clientId, userInfo.username);
+        if (result.success) {
+          gameManager.broadcastToGame(parsedMessage.gameId, {
+            type: 'game_start',
+            game: { id: result.game.id, type: result.game.type, players: result.game.players, board: result.game.board, currentTurn: result.game.currentTurn }
+          });
+          gameManager.broadcastToGame(parsedMessage.gameId, { type: 'game_list', games: gameManager.getGameList() });
+        } else {
+          ws.send(JSON.stringify({ type: 'game_error', error: result.error }));
+        }
+        return;
+      }
+
+      if (parsedMessage.type === 'game_spectate') {
+        const result = gameManager.spectateGame(parsedMessage.gameId, clientId, userInfo.username);
+        if (result.success) {
+          ws.send(JSON.stringify({
+            type: 'game_start',
+            game: { id: result.game.id, type: result.game.type, players: result.game.players, board: result.game.board, currentTurn: result.game.currentTurn, winner: result.game.winner }
+          }));
+          // 通知玩家有新观战者
+          gameManager.broadcastToGame(parsedMessage.gameId, {
+            type: 'game_spectator_count',
+            gameId: parsedMessage.gameId,
+            count: result.game.spectators.size
+          });
+        } else {
+          ws.send(JSON.stringify({ type: 'game_error', error: result.error }));
+        }
+        return;
+      }
+
+      if (parsedMessage.type === 'game_move') {
+        const result = gameManager.makeMove(parsedMessage.gameId, clientId, parsedMessage.row, parsedMessage.col);
+        if (result.success) {
+          gameManager.broadcastToGame(parsedMessage.gameId, {
+            type: 'game_moved',
+            gameId: parsedMessage.gameId,
+            move: result.move,
+            currentTurn: result.game.currentTurn,
+            winner: result.game.winner || null,
+            status: result.game.status
+          });
+        } else {
+          ws.send(JSON.stringify({ type: 'game_error', error: result.error }));
+        }
+        return;
+      }
+
+      if (parsedMessage.type === 'game_leave') {
+        gameManager.leaveGame(clientId);
+        ws.send(JSON.stringify({ type: 'game_left' }));
+        gameManager.broadcastToGame(parsedMessage.gameId, { type: 'game_list', games: gameManager.getGameList() });
+        return;
+      }
+
+      if (parsedMessage.type === 'game_chat') {
+        gameManager.gameChat(parsedMessage.gameId, userInfo.username, parsedMessage.content);
+        return;
+      }
+
+      if (parsedMessage.type === 'game_list') {
+        ws.send(JSON.stringify({ type: 'game_list', games: gameManager.getGameList() }));
+        return;
+      }
+
+      if (parsedMessage.type === 'game_players') {
+        ws.send(JSON.stringify({ type: 'game_players', players: gameManager.getOnlinePlayerList(clientId) }));
+        return;
+      }
       
       // 过滤屏蔽词
       if (parsedMessage.content && parsedMessage.type !== 'image') {
@@ -544,6 +807,8 @@ wss.on('connection', async (ws, req) => {
         admin.banMac(macAddress);
       }
     }
+    // 清理游戏
+    gameManager.leaveGame(clientId);
     admin.onlineUsers.delete(clientId);
   });
 
