@@ -687,15 +687,11 @@ wss.on('connection', async (ws, req) => {
         return;
       }
 
-      // 未注册用户禁止发消息，踢出并封禁IP+MAC
+      // 未注册用户禁止发消息，踢出（不封禁）
       if (!userInfo.registered) {
-        console.log(`🚫 用户 #${clientId} (${clientIp} / ${macAddress}) 未登录就发消息，封禁并断开`);
+        console.log(`🚫 用户 #${clientId} (${clientIp} / ${macAddress}) 未登录就发消息，断开`);
         if (ws.readyState === WebSocket.OPEN) {
           ws.send(JSON.stringify({ type: 'force_logout', reason: '请通过登录页面登录' }));
-        }
-        await admin.banIp(clientIp);
-        if (macAddress !== '本机' && macAddress !== '-') {
-          await admin.banMac(macAddress);
         }
         ws.close(4002, '未登录');
         return;
@@ -911,17 +907,6 @@ wss.on('connection', async (ws, req) => {
 
   ws.on('close', () => {
     activeConnections.delete(ws);
-    const info = admin.onlineUsers.get(clientId);
-    // 未注册就断开 → 封禁IP+MAC
-    if (info && !info.registered) {
-      console.log(`🚫 用户 #${clientId} (${clientIp} / ${macAddress}) 未登录就断开，封禁`);
-      admin.banIp(clientIp);
-      if (macAddress !== '本机' && macAddress !== '-') {
-        admin.banMac(macAddress);
-      }
-    }
-    // 清理游戏
-    gameManager.leaveGame(clientId);
     admin.onlineUsers.delete(clientId);
   });
 
