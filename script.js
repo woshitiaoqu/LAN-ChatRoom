@@ -364,20 +364,23 @@ function renderActiveGames(games) {
     container.innerHTML = '<p class="empty-tip">暂无进行中的游戏</p>';
     return;
   }
-  container.innerHTML = games.map(g => `
+  container.innerHTML = games.map(g => {
+    const statusText = g.status === 'waiting' ? '⏳ 等待加入' : '🎮 进行中';
+    const specText = g.spectatorCount > 0 ? `👀 ${g.spectatorCount}人观战` : '';
+    return `
     <div class="active-game-item">
       <div class="game-info">
         <strong>${g.type === 'gomoku' ? '⚫ 五子棋' : g.type}</strong>
-        - ${g.players.join(' vs ')}
-        ${g.status === 'waiting' ? '(等待加入)' : '(进行中)'}
-        ${g.spectatorCount > 0 ? ` 观战:${g.spectatorCount}人` : ''}
+        ${g.players.join(' vs ')}
+        <span class="game-status">${statusText}</span>
+        ${specText ? `<span class="game-spec-count">${specText}</span>` : ''}
       </div>
       <div>
         ${g.status === 'waiting' ? `<button class="game-btn-join" onclick="joinGame('${g.id}')">加入</button>` : ''}
         <button class="game-btn-spectate" onclick="spectateGame('${g.id}')">观战</button>
       </div>
-    </div>
-  `).join('');
+    </div>`;
+  }).join('');
 }
 
 // 渲染在线玩家列表
@@ -430,10 +433,17 @@ function openGomoku(game) {
   const me = game.players.find(p => p.name === currentUser);
   myGameColor = me ? me.color : null;
 
+  // 观战者模式
+  if (myGameColor) {
+    document.body.classList.remove('spectator');
+  } else {
+    document.body.classList.add('spectator');
+  }
+
   // 更新标题
   const title = myGameColor
     ? `五子棋 (${myGameColor === 'black' ? '⚫ 黑棋' : '⚪ 白棋'})`
-    : '五子棋 (观战)';
+    : '五子棋 (👀 观战中)';
   document.getElementById('gomokuTitle').textContent = title;
 
   // 渲染棋盘
@@ -487,19 +497,24 @@ function handleGomokuMove(data) {
 }
 
 // 更新回合/胜负信息
-function updateTurnInfo(currentTurn, winnerId) {
+function updateTurnInfo(currentTurn, winnerName) {
   const el = document.getElementById('gomokuTurn');
-  if (winnerId) {
-    // 判断赢家是谁
-    const isMe = (winnerId === currentUser);
-    el.textContent = isMe ? '🎉 你赢了！' : '😢 你输了';
+  const specEl = document.getElementById('gomokuSpectators');
+  if (winnerName) {
+    if (myGameColor) {
+      const isMe = (winnerName === currentUser);
+      el.textContent = isMe ? '🎉 你赢了！' : '😢 你输了';
+    } else {
+      el.textContent = `🎉 ${winnerName} 获胜！`;
+    }
     el.style.color = '#e91e63';
   } else if (myGameColor) {
     const isMyTurn = currentTurn === myGameColor;
     el.textContent = isMyTurn ? '轮到你了' : '等待对手...';
     el.style.color = isMyTurn ? '#4caf50' : '#999';
   } else {
-    el.textContent = currentTurn === 'black' ? '⚫ 黑棋落子' : '⚪ 白棋落子';
+    // 观战者视角
+    el.textContent = currentTurn === 'black' ? '⚫ 黑棋落子中...' : '⚪ 白棋落子中...';
     el.style.color = '#666';
   }
 }
@@ -533,6 +548,7 @@ function addGomokuChat(data) {
 // 关闭五子棋
 function closeGomoku() {
   gomokuModal.classList.add('hidden');
+  document.body.classList.remove('spectator');
   currentGameId = null;
   myGameColor = null;
   lastMoveCell = null;

@@ -321,6 +321,16 @@ body.mini-mode .stealth-toggle {
 .game-btn-join:hover {
   background: #218838;
 }
+.game-status {
+  font-size: 11px;
+  color: #999;
+  margin-left: 6px;
+}
+.game-spec-count {
+  font-size: 11px;
+  color: #ff9800;
+  margin-left: 8px;
+}
 .game-btn-spectate {
   padding: 5px 12px;
   font-size: 12px;
@@ -403,6 +413,13 @@ body.mini-mode .stealth-toggle {
 }
 .gomoku-cell:hover {
   background: rgba(255,255,255,0.2);
+}
+/* 观战者不能下棋 */
+body.spectator .gomoku-cell {
+  cursor: default;
+}
+body.spectator .gomoku-cell:hover {
+  background: transparent;
 }
 .gomoku-cell.black::after,
 .gomoku-cell.white::after {
