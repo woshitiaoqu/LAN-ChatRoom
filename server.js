@@ -827,6 +827,10 @@ wss.on('connection', async (ws, req) => {
       // ===== 邀请对战 =====
       if (parsedMessage.type === 'game_invite') {
         const targetName = parsedMessage.targetUsername;
+        if (targetName === userInfo.username) {
+          ws.send(JSON.stringify({ type: 'game_error', error: '不能邀请自己' }));
+          return;
+        }
         // 找到被邀请人的 WebSocket
         let targetWs = null;
         let targetId = null;

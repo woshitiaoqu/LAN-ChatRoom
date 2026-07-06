@@ -395,11 +395,12 @@ function renderActiveGames(games) {
 // 渲染在线玩家列表
 function renderPlayerList(players) {
   const container = document.getElementById('playerList');
-  if (!players || players.length === 0) {
+  const others = (players || []).filter(p => p.username !== currentUser);
+  if (others.length === 0) {
     container.innerHTML = '<p class="empty-tip">暂无在线用户</p>';
     return;
   }
-  container.innerHTML = players.map(p => `
+  container.innerHTML = others.map(p => `
     <div class="player-item">
       <span class="name">${p.username}</span>
       <button class="game-btn-invite" onclick="invitePlayer('${p.username}')">邀请对战</button>
