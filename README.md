@@ -1,136 +1,77 @@
 # 局域网聊天室
 
-这是一个基于 WebSocket 的局域网即时聊天应用，支持多用户实时聊天和用户名设置。 100%仅依靠 cline + deepseek-API
+基于 WebSocket 的局域网即时聊天应用，支持多用户实时聊天、游戏对战、管理控制台。
 
 ## 功能特性
 
-- 实时消息传输
-- 多用户支持
-- 自定义用户名
-- 简洁的用户界面
-- 自动消息滚动
+- 实时消息传输（WebSocket）
+- 多用户支持，自定义用户名
+- 图片发送（base64，限制 5MB）
+- 五子棋对战（邀请、观战、观战聊天）
+- 管理控制台（踢出用户、禁言、IP/MAC 黑名单、屏蔽词）
+- 小窗模式（Ctrl+Shift+H）
+- SQLite 消息持久化
 
 ## 技术栈
 
 - Node.js (Express + WebSocket)
-- MongoDB (消息存储)
-- HTML5 + CSS3
-- JavaScript (ES6)
+- SQLite（消息存储，运行时自动创建 `chat.db`）
+- 原生 HTML5 + CSS3 + JavaScript (ES6)
 
 ## 环境要求
 
-1. Node.js (v18+)
-2. MongoDB (v6+)
+- Node.js v18+
+- 无需安装数据库——SQLite 自动创建
 
-## 安装指南
-
-### 1. 安装和启动 MongoDB
-
-- macOS:
-
-  ```bash
-  # 安装MongoDB
-  brew tap mongodb/brew
-  brew install mongodb-community@6.0
-
-  # 启动MongoDB服务
-  brew services start mongodb-community
-
-  # 检查服务状态
-  brew services list
-
-  # 如果服务未运行，手动启动
-  mongod --config /usr/local/etc/mongod.conf
-  ```
-
-- Windows:
-
-> 注意，win 的配置我自己也不是很清楚，推荐使用 mac 来运行本项目
-
-1. 下载安装包：https://www.mongodb.com/try/download/community
-2. 按照安装向导完成安装
-3. 启动 MongoDB 服务：
-   - 打开命令提示符（管理员权限）
-   - 运行以下命令：
-     ```bash
-     net start MongoDB
-     ```
-   - 检查服务状态：
-     ```bash
-     sc query MongoDB
-     ```
-   - 如果服务未运行，手动启动：
-     ```bash
-     "C:\Program Files\MongoDB\Server\6.0\bin\mongod.exe" --config "C:\Program Files\MongoDB\Server\6.0\bin\mongod.cfg"
-     ```
-
-- 常见问题：
-  - 如果端口 27017 被占用：
-    ```bash
-    sudo lsof -i :27017  # 查看占用进程
-    sudo kill <PID>      # 终止占用进程
-    ```
-  - 如果权限不足：
-    ```bash
-    sudo chown -R `whoami` /data/db  # macOS/Linux
-    ```
-
-### 2. 克隆仓库
+## 快速开始
 
 ```bash
-git clone https://github.com/Ganzhe2028/LAN-ChatRoom.git
-cd LAN-ChatRoom
-```
-
-### 3. 安装依赖
-
-```bash
+# 1. 安装依赖
 npm install
+
+# 2. 启动（服务器 + 管理控制台，一个终端搞定）
+node adminConsole.js
+
+# 3. 浏览器访问
+http://localhost:8082
 ```
 
-### 4. 启动服务器
+局域网内其他用户通过 `http://<你的IP>:8082` 访问。
 
-```bash
-npm start
-```
+## 管理控制台
 
-### 5. 访问应用
+运行 `node adminConsole.js` 后，终端会显示管理菜单：
 
-在浏览器中访问：
-
-```
-http://localhost:8081
-```
-
-## 数据库配置
-
-- 默认使用本地 MongoDB 实例 (mongodb://localhost:27017)
-- 数据库名称：chatApp
-- 集合名称：messages
-- 如果需要修改配置，请编辑 server.js 中的相关参数
-
-## 使用说明
-
-1. 打开应用后，输入用户名并点击"加入聊天室"
-2. 在消息输入框中输入内容，按回车发送
-3. 所有在线用户将实时收到消息
-4. 用户加入或离开时会有系统通知
-
-## 注意事项
-
-- 确保所有用户在同一个局域网内
-- 默认端口为 8081，可在 server.js 中修改
-- 建议使用现代浏览器以获得最佳体验
-- 确保 MongoDB 服务已启动
+| 选项 | 功能 |
+|------|------|
+| 1 | 查看在线用户列表 |
+| 2 | 查看历史连接统计 |
+| 3 | 获取服务器状态 |
+| 4 | 禁言/解禁用户 |
+| 5 | 踢出用户（仅断开，不封禁） |
+| 6 | 广播系统消息 |
+| 7 | 查询用户消息记录 |
+| 8 | 清空聊天记录 |
+| 9 | 提示用户 |
+| 10 | 屏蔽词管理 |
+| 11 | IP/MAC 黑名单管理 |
 
 ## 项目结构
 
 ```
 LAN-ChatRoom/
-├── index.html        # 前端页面
-├── style.css         # 样式表
-├── script.js         # 前端逻辑
-├── server.js         # 后端服务器
-├── package.json      # 项目配置
-└── README.md         # 项目文档
+├── server.js           # 后端服务器（Express + WebSocket + 游戏模块）
+├── adminConsole.js     # 管理控制台
+├── script.js           # 前端逻辑（聊天 + 游戏 + 小窗）
+├── index.html          # 页面结构
+├── style.css           # 样式表
+├── package.json        # 项目配置
+└── chat.db             # SQLite 数据库（运行时自动创建）
 ```
+
+## 注意事项
+
+- 确保所有用户在同一个局域网内
+- 默认端口 8082，可在 `server.js` 中修改
+- 数据库文件 `chat.db` 包含聊天记录，已在 `.gitignore` 中排除
+- `mongodb` 是残留依赖，项目实际使用 SQLite
