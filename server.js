@@ -4,6 +4,10 @@ const express = require('express');
 const sqlite3 = require('sqlite3').verbose();
 const { open } = require('sqlite');
 const { execSync } = require('child_process');
+const fs = require('fs');
+const path = require('path');
+const crypto = require('crypto');
+const multer = require('multer');
 
 const app = express();
 const server = http.createServer(app);
@@ -74,6 +78,25 @@ async function initDatabase() {
       CREATE TABLE IF NOT EXISTS banned_macs (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         mac TEXT NOT NULL UNIQUE
+      )
+    `);
+
+    // 创建文件共享表
+    await db.exec(`
+      CREATE TABLE IF NOT EXISTS file_shares (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        filename TEXT NOT NULL,
+        stored_name TEXT NOT NULL UNIQUE,
+        mime_type TEXT NOT NULL,
+        size INTEGER NOT NULL,
+        hash TEXT NOT NULL,
+        uploader_id INTEGER NOT NULL,
+        uploader_name TEXT NOT NULL,
+        uploaded_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        visible INTEGER DEFAULT 1,
+        downloadable INTEGER DEFAULT 1,
+        allowed_users TEXT,
+        deleted INTEGER DEFAULT 0
       )
     `);
 
@@ -200,6 +223,19 @@ async function getTotalMessageCount() {
 
 // 静态文件服务
 app.use(express.static('.'));
+
+// 文件上传配置
+const uploadDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, uploadDir),
+  filename: (req, file, cb) => cb(null, crypto.randomUUID() + path.extname(file.originalname))
+});
+const upload = multer({
+  storage,
+  limits: { fileSize: 100 * 1024 * 1024 } // 100MB limit
+});
 
 // 初始化数据库
 initDatabase().then(() => {}).catch(err => {
@@ -838,6 +874,112 @@ const admin = {
   }
 };
 
+// ==================== 文件共享 API ====================
+
+function broadcastFileEvent(type, data) {
+  const msg = JSON.stringify({ type, ...data });
+  wss.clients.forEach(client => {
+    if (client.readyState === WebSocket.OPEN) client.send(msg);
+  });
+}
+
+// 上传文件（含哈希去重）
+const uploadMiddleware = upload.single('file');
+app.post('/upload', (req, res) => {
+  uploadMiddleware(req, res, async (err) => {
+    if (err) {
+      if (err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(413).json({ error: '文件过大，限制 100MB' });
+      }
+      console.error('❌ Multer 上传错误:', err);
+      return res.status(500).json({ error: '上传失败: ' + err.message });
+    }
+
+    try {
+      if (!req.file) return res.status(400).json({ error: '未选择文件' });
+      const { hash, clientId, username } = req.body;
+      if (!hash) return res.status(400).json({ error: '缺少文件哈希' });
+
+      // 查重
+      const existing = await db.get('SELECT id, filename, size FROM file_shares WHERE hash = ? AND deleted = 0', hash);
+      if (existing) {
+        fs.unlink(req.file.path, () => {});
+        return res.json({ duplicate: true, id: existing.id, filename: existing.filename, size: existing.size });
+      }
+
+      const storedName = req.file.filename;
+      await db.run(
+        'INSERT INTO file_shares (filename, stored_name, mime_type, size, hash, uploader_id, uploader_name) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        [req.file.originalname, storedName, req.file.mimetype, req.file.size, hash, parseInt(clientId) || 0, username || '未知']
+      );
+      const fileId = db.lastID || (await db.get('SELECT id FROM file_shares WHERE stored_name = ?', storedName)).id;
+
+      broadcastFileEvent('file_added', { file: { id: fileId, filename: req.file.originalname, size: req.file.size, uploader: username, time: new Date().toLocaleString() } });
+      res.json({ id: fileId, filename: req.file.originalname, size: req.file.size });
+    } catch (err) {
+      console.error('❌ 文件上传失败:', err);
+      if (req.file) fs.unlink(req.file.path, () => {});
+      res.status(500).json({ error: '上传失败' });
+    }
+  });
+});
+
+// 下载文件
+app.get('/download/:id', async (req, res) => {
+  const file = await db.get('SELECT * FROM file_shares WHERE id = ? AND deleted = 0', parseInt(req.params.id));
+  if (!file) return res.status(404).json({ error: '文件不存在' });
+  if (!file.downloadable) return res.status(403).json({ error: '文件已被禁止下载' });
+
+  const filePath = path.join(uploadDir, file.stored_name);
+  if (!fs.existsSync(filePath)) return res.status(404).json({ error: '文件已丢失' });
+
+  res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(file.filename)}"`);
+  res.setHeader('Content-Type', file.mime_type);
+  res.sendFile(filePath);
+});
+
+// 获取文件列表（按用户权限过滤）
+app.get('/api/files', async (req, res) => {
+  const userClientId = req.query.clientId;
+  const files = await db.all('SELECT id, filename, mime_type, size, uploader_name, uploader_id, uploaded_at FROM file_shares WHERE deleted = 0 AND visible = 1 ORDER BY uploaded_at DESC');
+  const filtered = files.filter(f => {
+    if (!f.allowed_users) return true;
+    try { return JSON.parse(f.allowed_users).includes(userClientId); } catch { return true; }
+  });
+  res.json(filtered);
+});
+
+// ==================== 文件管理（admin API）====================
+
+const fileAdmin = {
+  async listAll() {
+    return await db.all('SELECT id, filename, size, hash, uploader_name, uploader_id, uploader_name, visible, downloadable, allowed_users, deleted, uploaded_at FROM file_shares ORDER BY uploaded_at DESC');
+  },
+  async delete(id) {
+    await db.run('UPDATE file_shares SET deleted = 1 WHERE id = ?', id);
+    broadcastFileEvent('file_deleted', { id });
+  },
+  async toggleVisible(id) {
+    const f = await db.get('SELECT visible FROM file_shares WHERE id = ?', id);
+    if (!f) return { error: '文件不存在' };
+    await db.run('UPDATE file_shares SET visible = ? WHERE id = ?', f.visible ? 0 : 1, id);
+    broadcastFileEvent('file_updated', { id, visible: !f.visible });
+    return { visible: !f.visible };
+  },
+  async toggleDownloadable(id) {
+    const f = await db.get('SELECT downloadable FROM file_shares WHERE id = ?', id);
+    if (!f) return { error: '文件不存在' };
+    await db.run('UPDATE file_shares SET downloadable = ? WHERE id = ?', f.downloadable ? 0 : 1, id);
+    broadcastFileEvent('file_updated', { id, downloadable: !f.downloadable });
+    return { downloadable: !f.downloadable };
+  },
+  async setAllowedUsers(id, userIds) {
+    // userIds: null (all) or JSON array of clientId strings
+    await db.run('UPDATE file_shares SET allowed_users = ? WHERE id = ?', userIds ? JSON.stringify(userIds) : null, id);
+    broadcastFileEvent('file_updated', { id, allowed_users: userIds });
+  }
+};
+
 // WebSocket连接处理
 wss.on('connection', async (ws, req) => {
   connectionCount++;
@@ -1463,7 +1605,8 @@ module.exports = {
   queryUserMessages,
   clearAllMessages,
   db,
-  startServer
+  startServer,
+  fileAdmin
 };
 
 // 优雅关闭处理

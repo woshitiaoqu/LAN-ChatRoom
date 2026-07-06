@@ -16,6 +16,12 @@ const messageInput = document.getElementById('messageInput');
 const sendBtn = document.getElementById('sendBtn');
 const imageBtn = document.getElementById('imageBtn');
 const imageInput = document.getElementById('imageInput');
+const fileBtn = document.getElementById('fileBtn');
+const fileInput = document.getElementById('fileInput');
+const filePanel = document.getElementById('filePanel');
+const filePanelClose = document.getElementById('filePanelClose');
+const fileList = document.getElementById('fileList');
+const fileUploadBtn = document.getElementById('fileUploadBtn');
 
 // 获取DOM元素
 const loginForm = document.getElementById('loginForm');
@@ -109,9 +115,12 @@ function connectWebSocket() {
       handleSharerListMsg(data);
     } else if (data.type === 'screen_share_stop') {
       handleScreenShareStopMsg(data);
-    } else if (data.type === 'webrtc_signal') {
-      handleWebRTCSignal(data);
-    } else {
+      } else if (data.type === 'file_added') {
+        addSystemMessage(data.uploader + ' 上传了文件: ' + data.filename);
+        renderFileList();
+      } else if (data.type === 'file_deleted' || data.type === 'file_updated') {
+        renderFileList();
+      } else {
       displayMessage(data);
     }
   };
@@ -189,6 +198,76 @@ imageInput.addEventListener('change', (e) => {
   // 清空文件选择
   imageInput.value = '';
 });
+
+// ===== 文件共享 =====
+
+// 文件按钮 → 打开文件面板
+fileBtn.addEventListener('click', () => {
+  filePanel.classList.remove('hidden');
+  renderFileList();
+});
+filePanelClose.addEventListener('click', () => filePanel.classList.add('hidden'));
+
+// 上传按钮 → 选择文件
+fileUploadBtn.addEventListener('click', () => fileInput.click());
+
+// 选择文件后上传（含SHA-256哈希去重）
+fileInput.addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  fileInput.value = '';
+
+  try {
+    // 计算SHA-256哈希
+    const arrayBuffer = await file.arrayBuffer();
+    const hashBuffer = await crypto.subtle.digest('SHA-256', arrayBuffer);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+
+    // 上传到服务器
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('hash', hashHex);
+    formData.append('clientId', clientId);
+    formData.append('username', currentUser);
+
+    const res = await fetch('/upload', { method: 'POST', body: formData });
+    const result = await res.json();
+
+    if (result.duplicate) {
+      addSystemMessage('文件已存在（去重）: ' + result.filename);
+    } else {
+      addSystemMessage('你上传了文件: ' + result.filename);
+    }
+    renderFileList();
+  } catch (err) {
+    console.error('上传失败:', err);
+    alert('文件上传失败');
+  }
+});
+
+// 渲染文件列表
+async function renderFileList() {
+  try {
+    const res = await fetch('/api/files?clientId=' + encodeURIComponent(clientId));
+    const files = await res.json();
+    if (fileList) {
+      fileList.innerHTML = files.map(f => {
+        const size = (f.size / 1024).toFixed(1) + 'KB';
+        return '<div class="file-item">' +
+          '<div class="file-item-info">' +
+          '<div class="file-item-name">' + f.filename + '</div>' +
+          '<div class="file-item-meta">' + size + ' · ' + f.uploader_name + ' · ' + f.uploaded_at + '</div>' +
+          '</div>' +
+          '<a class="file-item-dl" href="/download/' + f.id + '" download>下载</a>' +
+          '</div>';
+      }).join('');
+      if (files.length === 0) fileList.innerHTML = '<div class="file-empty">暂无文件</div>';
+    }
+  } catch (err) {
+    console.error('获取文件列表失败:', err);
+  }
+}
 
 function sendMessage() {
   const content = messageInput.value.trim();

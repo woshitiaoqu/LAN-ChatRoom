@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 const readline = require('readline');
-const { admin, getTotalMessageCount, queryUserMessages, clearAllMessages, startServer } = require('./server.js');
+const { admin, getTotalMessageCount, queryUserMessages, clearAllMessages, startServer, fileAdmin } = require('./server.js');
 
 // 创建交互式命令行界面
 const rl = readline.createInterface({
@@ -34,6 +34,7 @@ function showMenu() {
   console.log('│  4. 禁言/解禁用户       9. 提示用户    │');
   console.log('│  5. 踢出用户           10. 屏蔽词管理  │');
   console.log('│                 11. IP/MAC黑名单管理  │');
+  console.log('│                 12. 文件管理          │');
   console.log('│                      0. 退出          │');
   console.log('├────────────────────────────────────────┤');
   console.log('│  🌐 访问地址:                           │');
@@ -474,6 +475,87 @@ function manageBlacklist() {
   });
 }
 
+// 12. 文件管理
+function manageFiles() {
+  return new Promise(async (resolve) => {
+    const files = await fileAdmin.listAll();
+    console.log('');
+    console.log('┌────────────────────────────────────────┐');
+    console.log('│         📁 文件管理                     │');
+    console.log('├────────────────────────────────────────┤');
+    console.log('│  1. 查看所有文件                       │');
+    console.log('│  2. 删除文件                           │');
+    console.log('│  3. 切换可见性（显示/隐藏）            │');
+    console.log('│  4. 切换下载权限                       │');
+    console.log('│  5. 设置用户白名单                     │');
+    console.log('│  0. 返回                               │');
+    console.log('└────────────────────────────────────────┘');
+    console.log(`共 ${files.length} 个文件`);
+    rl.question('请选择 (0-5): ', async (choice) => {
+      if (choice === '1') {
+        if (files.length === 0) { console.log('暂无文件'); resolve(); return; }
+        console.log('\n📋 文件列表:');
+        console.log('-'.repeat(80));
+        files.forEach((f, i) => {
+          const size = (f.size / 1024).toFixed(1) + 'KB';
+          const vis = f.visible ? '✅可见' : '❌隐藏';
+          const dl = f.downloadable ? '✅可下载' : '❌禁止下载';
+          const white = f.allowed_users ? `[白名单:${f.allowed_users}]` : '[所有人]';
+          console.log(`  ${i+1}. ${f.filename} (${size}) ${f.uploader_name} ${vis} ${dl} ${white}`);
+        });
+        resolve();
+      } else if (choice === '2') {
+        if (files.length === 0) { console.log('暂无文件'); resolve(); return; }
+        files.forEach((f, i) => console.log(`  ${i+1}. ${f.filename}`));
+        rl.question('请输入要删除的文件序号 (0取消): ', async (num) => {
+          const n = parseInt(num);
+          if (n > 0 && n <= files.length) {
+            await fileAdmin.delete(files[n-1].id);
+            console.log('✅ 已删除');
+          }
+          resolve();
+        });
+      } else if (choice === '3') {
+        if (files.length === 0) { console.log('暂无文件'); resolve(); return; }
+        files.forEach((f, i) => console.log(`  ${i+1}. ${f.filename} [${f.visible ? '可见' : '隐藏'}]`));
+        rl.question('请输入要切换的文件序号 (0取消): ', async (num) => {
+          const n = parseInt(num);
+          if (n > 0 && n <= files.length) {
+            const r = await fileAdmin.toggleVisible(files[n-1].id);
+            console.log(`✅ 已切换为 ${r.visible ? '可见' : '隐藏'}`);
+          }
+          resolve();
+        });
+      } else if (choice === '4') {
+        if (files.length === 0) { console.log('暂无文件'); resolve(); return; }
+        files.forEach((f, i) => console.log(`  ${i+1}. ${f.filename} [${f.downloadable ? '可下载' : '禁止下载'}]`));
+        rl.question('请输入要切换的文件序号 (0取消): ', async (num) => {
+          const n = parseInt(num);
+          if (n > 0 && n <= files.length) {
+            const r = await fileAdmin.toggleDownloadable(files[n-1].id);
+            console.log(`✅ 已切换为 ${r.downloadable ? '可下载' : '禁止下载'}`);
+          }
+          resolve();
+        });
+      } else if (choice === '5') {
+        if (files.length === 0) { console.log('暂无文件'); resolve(); return; }
+        files.forEach((f, i) => console.log(`  ${i+1}. ${f.filename}`));
+        rl.question('请输入文件序号 (0取消): ', async (num) => {
+          const n = parseInt(num);
+          if (n <= 0 || n > files.length) { resolve(); return; }
+          rl.question('请输入允许的用户clientId（逗号分隔，回车表示所有人可见）: ', async (ids) => {
+            await fileAdmin.setAllowedUsers(files[n-1].id, ids.trim() ? ids.split(',').map(s => s.trim()) : null);
+            console.log('✅ 白名单已更新');
+            resolve();
+          });
+        });
+      } else {
+        resolve();
+      }
+    });
+  });
+}
+
 // 主程序循环
 async function main() {
   console.log('\n📊 正在初始化...');
@@ -523,6 +605,9 @@ async function main() {
         break;
       case '11':
         await manageBlacklist();
+        break;
+      case '12':
+        await manageFiles();
         break;
       case '0':
         console.log('\n👋 正在退出...');
