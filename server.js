@@ -238,7 +238,7 @@ const gameManager = {
     }
 
     if (type === 'snake') {
-      game.mapSize = 30;
+      game.mapSize = 40;
       game.food = null;
       game.players = [{ id: creatorId, name: creatorName }];
       game.snakes = {};

@@ -679,15 +679,15 @@ document.getElementById('snakeClose').addEventListener('click', () => {
 function openSnake(game) {
   snakeGameActive = true;
   snakeMyId = game.players.find(p => p.name === currentUser)?.id || null;
-  snakeState = { snakes: game.snakes, food: game.food, mapSize: game.mapSize || 30 };
+  snakeState = { snakes: game.snakes, food: game.food, mapSize: game.mapSize || 40 };
   snakeModal.classList.remove('hidden');
   gameLobby.classList.add('hidden');
   const mySnake = game.snakes[snakeMyId];
   const isSpec = !mySnake;
   document.body.classList.toggle('spectator', isSpec);
   document.getElementById('snakeTitle').textContent = isSpec ? '🐍 贪吃蛇 (观战中)' : '🐍 贪吃蛇';
-  const size = game.mapSize || 30;
-  const cellSize = Math.min(Math.floor((Math.min(window.innerWidth - 60, 580)) / size), 18);
+  const size = game.mapSize || 40;
+  const cellSize = Math.min(Math.floor((Math.min(window.innerWidth - 40, 700)) / size), 16);
   snakeCanvas.width = size * cellSize;
   snakeCanvas.height = size * cellSize;
   snakeCanvas._cellSize = cellSize;

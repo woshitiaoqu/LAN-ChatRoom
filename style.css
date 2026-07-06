@@ -580,7 +580,7 @@ body.spectator .gomoku-cell:hover {
 /* ===== 贪吃蛇 ===== */
 .snake-container {
   padding: 0;
-  max-width: 620px;
+  max-width: 720px;
 }
 .snake-info {
   display: flex;
