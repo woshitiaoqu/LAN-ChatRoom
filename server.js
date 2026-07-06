@@ -223,11 +223,12 @@ const gameManager = {
   // 创建游戏
   createGame(type, creatorId, creatorName) {
     const gameId = 'game_' + this.nextGameId++;
+    const colorMap = { gomoku: 'black', tictactoe: 'x', connect4: 'red', othello: 'black' };
     const game = {
       id: gameId,
       type,
       status: 'waiting', // waiting, playing, finished
-      players: [{ id: creatorId, name: creatorName, color: 'black' }],
+      players: [{ id: creatorId, name: creatorName, color: colorMap[type] || 'black' }],
       spectators: new Map(),
       board: null,
       currentTurn: null,
@@ -244,6 +245,25 @@ const gameManager = {
     } else if (type === 'rps') {
       game.choices = {};
       game.rpsResult = null;
+    } else if (type === 'connect4') {
+      game.board = Array(6).fill(null).map(() => Array(7).fill(null));
+      game.currentTurn = 'red';
+    } else if (type === 'othello') {
+      game.board = Array(8).fill(null).map(() => Array(8).fill(null));
+      game.board[3][3] = 'white'; game.board[3][4] = 'black';
+      game.board[4][3] = 'black'; game.board[4][4] = 'white';
+      game.currentTurn = 'black';
+    } else if (type === 'guess') {
+      game.target = Math.floor(Math.random() * 100) + 1;
+      game.choices = {};
+      game.scores = { p1: 0, p2: 0 };
+      game.round = 1;
+    } else if (type === 'battleship') {
+      game.boards = { p1: Array(6).fill(null).map(() => Array(6).fill(null)), p2: Array(6).fill(null).map(() => Array(6).fill(null)) };
+      game.ships = { p1: [], p2: [] };
+      game.phase = 'placing'; // placing → playing → finished
+      game.attacks = { p1: Array(6).fill(null).map(() => Array(6).fill(null)), p2: Array(6).fill(null).map(() => Array(6).fill(null)) };
+      game.placed = {};
     }
 
     this.games.set(gameId, game);
@@ -259,8 +279,9 @@ const gameManager = {
     if (game.players.length >= 2) return { success: false, error: '游戏已满' };
     if (game.players[0].id === playerId) return { success: false, error: '不能跟自己下' };
 
-    game.players.push({ id: playerId, name: playerName, color: 'white' });
-    game.status = 'playing';
+    const colorMap = { gomoku: 'white', tictactoe: 'o', othello: 'white', connect4: 'yellow' };
+    game.players.push({ id: playerId, name: playerName, color: colorMap[game.type] || 'white' });
+    game.status = game.type === 'battleship' ? 'placing' : 'playing';
     this.playerGames.set(playerId, gameId);
     return { success: true, game };
   },
@@ -287,6 +308,76 @@ const gameManager = {
     if (player.color !== game.currentTurn) return { success: false, error: '还没轮到你' };
 
     let size, colorA, colorB, winner, isDraw;
+
+    if (game.type === 'connect4') {
+      size = 6; colorA = 'red'; colorB = 'yellow';
+      const col = row;
+      if (col < 0 || col >= 7) return { success: false, error: '列无效' };
+      let dropRow = -1;
+      for (let r = 5; r >= 0; r--) { if (game.board[r][col] === null) { dropRow = r; break; } }
+      if (dropRow === -1) return { success: false, error: '此列已满' };
+      game.board[dropRow][col] = player.color;
+      game.currentTurn = game.currentTurn === colorA ? colorB : colorA;
+      winner = this.checkConnect4Winner(game.board, dropRow, col, player.color);
+      if (winner) {
+        game.status = 'finished';
+        game.winner = playerId;
+        this.broadcastToGame(gameId, { type: 'game_over', gameId, winnerName: player.name });
+        const finishedGameId = game.id;
+        setTimeout(() => {
+          this.games.delete(finishedGameId);
+          for (const [pid, gid] of this.playerGames) {
+            if (gid === finishedGameId) this.playerGames.delete(pid);
+          }
+          this.broadcastGameListToAll();
+        }, 3000);
+        this.broadcastGameListToAll();
+      } else {
+        isDraw = game.board.every(r => r.every(c => c !== null));
+        if (isDraw) {
+          game.status = 'finished';
+          this.broadcastToGame(gameId, { type: 'game_over', gameId, winnerName: '平局' });
+          const finishedGameId = game.id;
+          setTimeout(() => {
+            this.games.delete(finishedGameId);
+            for (const [pid, gid] of this.playerGames) {
+              if (gid === finishedGameId) this.playerGames.delete(pid);
+            }
+            this.broadcastGameListToAll();
+          }, 3000);
+          this.broadcastGameListToAll();
+        }
+      }
+      return { success: true, game, move: { row: dropRow, col, color: player.color }, winnerName: winner ? player.name : (isDraw ? '平局' : null) };
+    }
+
+    if (game.type === 'othello') {
+      size = 8; colorA = 'black'; colorB = 'white';
+      if (row < 0 || row >= 8 || col < 0 || col >= 8) return { success: false, error: '位置无效' };
+      if (game.board[row][col] !== null) return { success: false, error: '此位置已有棋子' };
+      const flips = this.getOthelloFlips(game.board, row, col, player.color);
+      if (flips.length === 0) return { success: false, error: '无效落子' };
+      game.board[row][col] = player.color;
+      flips.forEach(([r, c]) => { game.board[r][c] = player.color; });
+      game.currentTurn = game.currentTurn === colorA ? colorB : colorA;
+      // 如果对方无合法落子，继续轮到自己
+      if (!this.hasOthelloMoves(game.board, game.currentTurn)) {
+        game.currentTurn = game.currentTurn === colorA ? colorB : colorA;
+        if (!this.hasOthelloMoves(game.board, game.currentTurn)) {
+          game.status = 'finished';
+          const p1count = game.board.flat().filter(c => c === 'black').length;
+          const p2count = game.board.flat().filter(c => c === 'white').length;
+          const winnerName = p1count > p2count ? game.players[0].name : (p2count > p1count ? game.players[1].name : '平局');
+          this.broadcastToGame(gameId, { type: 'game_over', gameId, winnerName, board: game.board });
+          setTimeout(() => { this.games.delete(gameId); this.broadcastGameListToAll(); }, 3000);
+          this.broadcastGameListToAll();
+          return { success: true, game, move: { row, col, color: player.color }, winnerName };
+        }
+      }
+      winner = null; isDraw = false;
+      return { success: true, game, move: { row, col, color: player.color, flips }, winnerName: null };
+    }
+
     if (game.type === 'gomoku') { size = 15; colorA = 'black'; colorB = 'white'; }
     else if (game.type === 'tictactoe') { size = 3; colorA = 'x'; colorB = 'o'; }
     else return { success: false, error: '未知游戏类型' };
@@ -369,6 +460,53 @@ const gameManager = {
       if (line.every(([r, c]) => board[r][c] === color)) return color;
     }
     return null;
+  },
+
+  // 四子棋胜负检测
+  checkConnect4Winner(board, row, col, color) {
+    const directions = [[0,1],[1,0],[1,1],[1,-1]];
+    for (const [dr, dc] of directions) {
+      let count = 1;
+      for (let i = 1; i < 4; i++) {
+        const r = row + dr*i, c = col + dc*i;
+        if (r >= 0 && r < 6 && c >= 0 && c < 7 && board[r][c] === color) count++;
+        else break;
+      }
+      for (let i = 1; i < 4; i++) {
+        const r = row - dr*i, c = col - dc*i;
+        if (r >= 0 && r < 6 && c >= 0 && c < 7 && board[r][c] === color) count++;
+        else break;
+      }
+      if (count >= 4) return color;
+    }
+    return null;
+  },
+
+  // 黑白棋辅助函数
+  getOthelloFlips(board, row, col, color) {
+    const opp = color === 'black' ? 'white' : 'black';
+    const dirs = [[0,1],[1,0],[0,-1],[-1,0],[1,1],[1,-1],[-1,1],[-1,-1]];
+    const flips = [];
+    for (const [dr, dc] of dirs) {
+      let r = row + dr, c = col + dc;
+      const candidates = [];
+      while (r >= 0 && r < 8 && c >= 0 && c < 8 && board[r][c] === opp) {
+        candidates.push([r, c]);
+        r += dr; c += dc;
+      }
+      if (r >= 0 && r < 8 && c >= 0 && c < 8 && board[r][c] === color) {
+        flips.push(...candidates);
+      }
+    }
+    return flips;
+  },
+  hasOthelloMoves(board, color) {
+    for (let r = 0; r < 8; r++) {
+      for (let c = 0; c < 8; c++) {
+        if (board[r][c] === null && this.getOthelloFlips(board, r, c, color).length > 0) return true;
+      }
+    }
+    return false;
   },
 
   // 离开游戏
@@ -839,13 +977,15 @@ wss.on('connection', async (ws, req) => {
       if (parsedMessage.type === 'game_move') {
         const result = gameManager.makeMove(parsedMessage.gameId, clientId, parsedMessage.row, parsedMessage.col);
         if (result.success) {
+          const board = result.game.board;
           gameManager.broadcastToGame(parsedMessage.gameId, {
             type: 'game_moved',
             gameId: parsedMessage.gameId,
             move: result.move,
             currentTurn: result.game.currentTurn,
             winner: result.winnerName || null,
-            status: result.game.status
+            status: result.game.status,
+            board
           });
         } else {
           ws.send(JSON.stringify({ type: 'game_error', error: result.error }));
@@ -910,6 +1050,157 @@ wss.on('connection', async (ws, req) => {
 
       if (parsedMessage.type === 'game_chat') {
         gameManager.gameChat(parsedMessage.gameId, userInfo.username, parsedMessage.content);
+        return;
+      }
+
+      if (parsedMessage.type === 'guess_choice') {
+        const game = gameManager.games.get(parsedMessage.gameId);
+        if (!game || game.type !== 'guess') { ws.send(JSON.stringify({ type: 'game_error', error: '游戏无效' })); return; }
+        if (game.status !== 'playing') { ws.send(JSON.stringify({ type: 'game_error', error: '游戏未开始' })); return; }
+        const playerIdx = game.players.findIndex(p => p.id === clientId);
+        if (playerIdx === -1) { ws.send(JSON.stringify({ type: 'game_error', error: '你不是玩家' })); return; }
+
+        const num = parseInt(parsedMessage.number);
+        if (isNaN(num) || num < 1 || num > 100) { ws.send(JSON.stringify({ type: 'game_error', error: '请输入1-100的整数' })); return; }
+
+        const key = 'p' + (playerIdx + 1);
+        game.choices[key] = num;
+
+        if (game.choices.p1 && game.choices.p2) {
+          const d1 = Math.abs(game.choices.p1 - game.target);
+          const d2 = Math.abs(game.choices.p2 - game.target);
+          let roundWinner = null;
+          if (d1 < d2) { roundWinner = game.players[0].name; game.scores.p1++; }
+          else if (d2 < d1) { roundWinner = game.players[1].name; game.scores.p2++; }
+          else { roundWinner = '平局'; }
+
+          const isOver = game.round >= 5;
+          let finalWinner = null;
+          if (isOver) {
+            if (game.scores.p1 > game.scores.p2) finalWinner = game.players[0].name;
+            else if (game.scores.p2 > game.scores.p1) finalWinner = game.players[1].name;
+            else finalWinner = '平局';
+            game.status = 'finished';
+          }
+
+          gameManager.broadcastToGame(parsedMessage.gameId, {
+            type: 'guess_result',
+            gameId: parsedMessage.gameId,
+            target: game.target,
+            choices: { p1: game.choices.p1, p2: game.choices.p2 },
+            roundWinner,
+            scores: { p1: game.scores.p1, p2: game.scores.p2 },
+            round: game.round,
+            isOver,
+            finalWinner
+          });
+
+          if (isOver) {
+            setTimeout(() => { gameManager.games.delete(parsedMessage.gameId); gameManager.broadcastGameListToAll(); }, 3000);
+            gameManager.broadcastGameListToAll();
+          } else {
+            game.round++;
+            game.target = Math.floor(Math.random() * 100) + 1;
+            game.choices = {};
+          }
+        } else {
+          gameManager.broadcastToGame(parsedMessage.gameId, {
+            type: 'guess_choice_made',
+            gameId: parsedMessage.gameId,
+            playerId: clientId
+          });
+        }
+        return;
+      }
+
+      if (parsedMessage.type === 'battleship_place') {
+        const game = gameManager.games.get(parsedMessage.gameId);
+        if (!game || game.type !== 'battleship') { ws.send(JSON.stringify({ type: 'game_error', error: '游戏无效' })); return; }
+        if (game.phase !== 'placing') { ws.send(JSON.stringify({ type: 'game_error', error: '不在布置阶段' })); return; }
+        const playerIdx = game.players.findIndex(p => p.id === clientId);
+        if (playerIdx === -1) { ws.send(JSON.stringify({ type: 'game_error', error: '你不是玩家' })); return; }
+        const key = 'p' + (playerIdx + 1);
+        const board = game.boards[key];
+        const shipLen = parseInt(parsedMessage.length);
+        if (![2, 3].includes(shipLen)) { ws.send(JSON.stringify({ type: 'game_error', error: '无效船长度' })); return; }
+        const { row, col, dir } = parsedMessage;
+        if (row < 0 || row >= 6 || col < 0 || col >= 6) { ws.send(JSON.stringify({ type: 'game_error', error: '位置无效' })); return; }
+        const cells = [];
+        for (let i = 0; i < shipLen; i++) {
+          const r = dir === 'h' ? row : row + i;
+          const c = dir === 'h' ? col + i : col;
+          if (r >= 6 || c >= 6 || board[r][c] !== null) { ws.send(JSON.stringify({ type: 'game_error', error: '位置无效或重叠' })); return; }
+          cells.push([r, c]);
+        }
+        cells.forEach(([r, c]) => { board[r][c] = 'ship'; });
+        game.ships[key].push({ cells, hits: 0, length: shipLen });
+        game.placed[clientId] = (game.placed[clientId] || 0) + 1;
+
+        ws.send(JSON.stringify({ type: 'battleship_placed', gameId: parsedMessage.gameId, shipIndex: game.ships[key].length - 1 }));
+
+        const needShips = [2, 2, 3];
+        if ((game.placed[game.players[0]?.id] || 0) >= needShips.length && (game.placed[game.players[1]?.id] || 0) >= needShips.length) {
+          game.phase = 'playing';
+          gameManager.broadcastToGame(parsedMessage.gameId, { type: 'battleship_start', gameId: parsedMessage.gameId });
+        }
+        return;
+      }
+
+      if (parsedMessage.type === 'battleship_attack') {
+        const game = gameManager.games.get(parsedMessage.gameId);
+        if (!game || game.type !== 'battleship') { ws.send(JSON.stringify({ type: 'game_error', error: '游戏无效' })); return; }
+        if (game.phase !== 'playing') { ws.send(JSON.stringify({ type: 'game_error', error: '游戏未开始' })); return; }
+        const playerIdx = game.players.findIndex(p => p.id === clientId);
+        if (playerIdx === -1) { ws.send(JSON.stringify({ type: 'game_error', error: '你不是玩家' })); return; }
+        if (game.currentTurn !== clientId) { ws.send(JSON.stringify({ type: 'game_error', error: '还没轮到你' })); return; }
+
+        const { row, col } = parsedMessage;
+        if (row < 0 || row >= 6 || col < 0 || col >= 6) { ws.send(JSON.stringify({ type: 'game_error', error: '位置无效' })); return; }
+
+        const myKey = 'p' + (playerIdx + 1);
+        const oppKey = 'p' + (playerIdx === 0 ? 2 : 1);
+        const attacks = game.attacks[myKey];
+        if (attacks[row][col] !== null) { ws.send(JSON.stringify({ type: 'game_error', error: '已攻击过此位置' })); return; }
+
+        const oppBoard = game.boards[oppKey];
+        const hit = oppBoard[row][col] === 'ship';
+        attacks[row][col] = hit ? 'hit' : 'miss';
+
+        if (hit) {
+          oppBoard[row][col] = 'hit';
+          const ship = game.ships[oppKey].find(s => s.cells.some(([r, c]) => r === row && c === col));
+          if (ship) ship.hits++;
+        }
+
+        const allSunk = game.ships[oppKey].every(s => s.hits >= s.length);
+        let winner = null;
+        if (allSunk) {
+          game.phase = 'finished';
+          game.status = 'finished';
+          winner = game.players[playerIdx].name;
+          gameManager.broadcastToGame(parsedMessage.gameId, {
+            type: 'battleship_result',
+            gameId: parsedMessage.gameId,
+            attacker: myKey,
+            row, col, hit,
+            winnerName: winner,
+            allSunk: true,
+            playerAttacks: game.attacks
+          });
+          setTimeout(() => { gameManager.games.delete(parsedMessage.gameId); gameManager.broadcastGameListToAll(); }, 3000);
+          gameManager.broadcastGameListToAll();
+        } else {
+          game.currentTurn = game.players[playerIdx === 0 ? 1 : 0].id;
+          gameManager.broadcastToGame(parsedMessage.gameId, {
+            type: 'battleship_result',
+            gameId: parsedMessage.gameId,
+            attacker: myKey,
+            row, col, hit,
+            winnerName: null,
+            allSunk: false,
+            currentTurn: game.currentTurn
+          });
+        }
         return;
       }
 
