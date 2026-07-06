@@ -245,7 +245,7 @@ function displayMessage(message) {
   const isImage = message.type === 'image';
   const content = isImage 
     ? `<img src="${message.content}" alt="图片" class="message-image" onclick="window.open(this.src)">`
-    : `<div class="content">${message.content}</div>`;
+    : `<div class="content" data-copy="${message.content.replace(/"/g, '&quot;')}">${message.content}</div>`;
   
   messageElement.innerHTML = `
     <span class="username">${message.username}</span>
@@ -256,6 +256,17 @@ function displayMessage(message) {
   messagesDiv.appendChild(messageElement);
   messagesDiv.scrollTop = messagesDiv.scrollHeight;
 }
+
+// 点击文本消息自动复制
+messagesDiv.addEventListener('click', (e) => {
+  const el = e.target.closest('.content');
+  if (el && el.dataset.copy) {
+    navigator.clipboard.writeText(el.dataset.copy).then(() => {
+      el.title = '已复制';
+      setTimeout(() => el.title = '', 1500);
+    }).catch(() => {});
+  }
+});
 
 // 显示系统消息
 function addSystemMessage(content) {
