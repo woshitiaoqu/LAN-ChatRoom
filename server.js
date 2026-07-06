@@ -918,7 +918,50 @@ wss.on('connection', async (ws, req) => {
         }
         return;
       }
-      
+
+      // ===== 屏幕共享信令 =====
+      if (parsedMessage.type === 'screen_share_start') {
+        // 广播给其他人：有人开始共享屏幕
+        wss.clients.forEach(client => {
+          if (client.readyState === WebSocket.OPEN && client.id !== clientId) {
+            client.send(JSON.stringify({
+              type: 'screen_share_start',
+              fromId: clientId,
+              fromName: userInfo.username
+            }));
+          }
+        });
+        return;
+      }
+
+      if (parsedMessage.type === 'screen_share_stop') {
+        wss.clients.forEach(client => {
+          if (client.readyState === WebSocket.OPEN && client.id !== clientId) {
+            client.send(JSON.stringify({
+              type: 'screen_share_stop',
+              fromId: clientId
+            }));
+          }
+        });
+        return;
+      }
+
+      // WebRTC 信令转发（offer/answer/ice）
+      if (parsedMessage.type === 'webrtc_signal') {
+        const targetId = parsedMessage.targetId;
+        wss.clients.forEach(client => {
+          if (client.id === targetId && client.readyState === WebSocket.OPEN) {
+            client.send(JSON.stringify({
+              type: 'webrtc_signal',
+              fromId: clientId,
+              fromName: userInfo.username,
+              signal: parsedMessage.signal
+            }));
+          }
+        });
+        return;
+      }
+
       // 过滤屏蔽词
       if (parsedMessage.content && parsedMessage.type !== 'image') {
         parsedMessage.content = admin.filterText(parsedMessage.content);

@@ -577,3 +577,38 @@ body.spectator .gomoku-cell:hover {
   background: #e0e0e0;
 }
 
+/* ===== 屏幕共享 ===== */
+.screen-share-area {
+  background: #000;
+  border-radius: 8px;
+  margin-bottom: 10px;
+  overflow: hidden;
+  position: relative;
+}
+.screen-share-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 12px;
+  background: rgba(0,0,0,0.7);
+  color: #fff;
+  font-size: 13px;
+}
+.screen-share-header button {
+  background: none;
+  border: none;
+  color: #fff;
+  font-size: 16px;
+  cursor: pointer;
+  padding: 0 4px;
+}
+.screen-share-header button:hover {
+  color: #ff4757;
+}
+#screenShareVideo {
+  width: 100%;
+  max-height: 400px;
+  display: block;
+  background: #000;
+}
+

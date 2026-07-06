@@ -16,11 +16,19 @@
       </form>
     </div>
     <div class="chat hidden" id="chatContainer">
+      <div class="screen-share-area hidden" id="screenShareArea">
+        <div class="screen-share-header">
+          <span id="screenShareName"></span>
+          <button id="screenShareClose">✕</button>
+        </div>
+        <video id="screenShareVideo" autoplay playsinline></video>
+      </div>
       <div class="messages"></div>
       <div class="input-area">
         <input type="text" id="messageInput" placeholder="输入消息...">
         <input type="file" id="imageInput" accept="image/*" style="display: none;">
         <button id="imageBtn">图片</button>
+        <button id="screenShareBtn">📺 共享</button>
         <button id="gameBtn">🎮 游戏</button>
         <button id="sendBtn">发送</button>
       </div>

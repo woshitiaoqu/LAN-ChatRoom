@@ -135,6 +135,18 @@ function connectWebSocket() {
       alert('邀请已发送，等待 ' + data.targetUsername + ' 响应...');
     } else if (data.type === 'game_invite_declined') {
       alert(data.targetUsername + ' 拒绝了你的邀请');
+    } else if (data.type === 'screen_share_start') {
+      handleScreenShareStartMsg(data);
+    } else if (data.type === 'screen_share_stop') {
+      handleScreenShareStopMsg(data);
+    } else if (data.type === 'webrtc_signal') {
+      if (localScreenStream) {
+        // 共享者：收到观众的 offer
+        handleViewerOffer(data);
+      } else {
+        // 观众：收到 answer 或 ICE
+        handleWebRTCSignal(data);
+      }
     } else {
       displayMessage(data);
     }
@@ -647,4 +659,127 @@ inviteDecline.addEventListener('click', () => {
     inviteModal.classList.add('hidden');
     pendingInvite = null;
   }
+});
+
+// ===== 屏幕共享 =====
+let localScreenStream = null;
+let peerConnections = {}; // peerId → RTCPeerConnection
+const screenShareVideo = document.getElementById('screenShareVideo');
+const screenShareArea = document.getElementById('screenShareArea');
+const screenShareName = document.getElementById('screenShareName');
+
+// 开始共享
+document.getElementById('screenShareBtn').addEventListener('click', async () => {
+  if (localScreenStream) {
+    stopScreenShare();
+    return;
+  }
+  try {
+    localScreenStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
+    document.getElementById('screenShareBtn').textContent = '⏹ 停止';
+    document.getElementById('screenShareBtn').style.background = '#ff4757';
+    socket.send(JSON.stringify({ type: 'screen_share_start' }));
+    localScreenStream.getVideoTracks()[0].onended = () => stopScreenShare();
+  } catch (e) {
+    console.log('屏幕共享取消');
+  }
+});
+
+// 停止共享
+function stopScreenShare() {
+  if (localScreenStream) {
+    localScreenStream.getTracks().forEach(t => t.stop());
+    localScreenStream = null;
+  }
+  for (const id in peerConnections) {
+    peerConnections[id].close();
+    delete peerConnections[id];
+  }
+  document.getElementById('screenShareBtn').textContent = '📺 共享';
+  document.getElementById('screenShareBtn').style.background = '';
+  socket.send(JSON.stringify({ type: 'screen_share_stop' }));
+}
+
+// 处理 WebRTC 信令
+function handleWebRTCSignal(data) {
+  const { fromId, fromName, signal } = data;
+  if (signal.type === 'offer') {
+    const pc = createPeerConnection(fromId, fromName);
+    peerConnections[fromId] = pc;
+    pc.setRemoteDescription(new RTCSessionDescription(signal)).then(() => pc.createAnswer())
+      .then(answer => pc.setLocalDescription(answer))
+      .then(() => {
+        socket.send(JSON.stringify({ type: 'webrtc_signal', targetId: fromId, signal: pc.localDescription }));
+      });
+  } else if (signal.type === 'answer') {
+    const pc = peerConnections[fromId];
+    if (pc) pc.setRemoteDescription(new RTCSessionDescription(signal));
+  } else if (signal.candidate) {
+    const pc = peerConnections[fromId];
+    if (pc) pc.addIceCandidate(new RTCIceCandidate(signal));
+  }
+}
+
+function createPeerConnection(peerId, peerName) {
+  const pc = new RTCPeerConnection({ iceServers: [] });
+  pc.onicecandidate = (e) => {
+    if (e.candidate) {
+      socket.send(JSON.stringify({ type: 'webrtc_signal', targetId: peerId, signal: e.candidate }));
+    }
+  };
+  pc.ontrack = (e) => {
+    screenShareVideo.srcObject = e.streams[0];
+    screenShareName.textContent = peerName + ' 的屏幕';
+    screenShareArea.classList.remove('hidden');
+  };
+  return pc;
+}
+
+// 有人开始共享屏幕 → 给他发 offer（我是观众）
+function handleScreenShareStartMsg(data) {
+  if (localScreenStream || data.fromId === clientId) return; // 共享者自己不处理
+  // 创建 peer 并发 offer
+  const pc = createPeerConnection(data.fromId, data.fromName);
+  peerConnections[data.fromId] = pc;
+  if (localScreenStream) {
+    localScreenStream.getTracks().forEach(t => pc.addTrack(t, localScreenStream));
+  }
+  pc.createOffer().then(offer => pc.setLocalDescription(offer)).then(() => {
+    socket.send(JSON.stringify({ type: 'webrtc_signal', targetId: data.fromId, signal: pc.localDescription }));
+  });
+}
+
+// 共享者收到观众的 offer → 给他加 track 并回 answer
+function handleViewerOffer(data) {
+  if (!localScreenStream) return;
+  const { fromId, fromName, signal } = data;
+  let pc = peerConnections[fromId];
+  if (!pc) {
+    pc = createPeerConnection(fromId, fromName);
+    peerConnections[fromId] = pc;
+  }
+  localScreenStream.getTracks().forEach(t => pc.addTrack(t, localScreenStream));
+  pc.setRemoteDescription(new RTCSessionDescription(signal)).then(() => pc.createAnswer())
+    .then(answer => pc.setLocalDescription(answer))
+    .then(() => {
+      socket.send(JSON.stringify({ type: 'webrtc_signal', targetId: fromId, signal: pc.localDescription }));
+    });
+}
+
+// 收到 screen_share_stop
+function handleScreenShareStopMsg(data) {
+  if (peerConnections[data.fromId]) {
+    peerConnections[data.fromId].close();
+    delete peerConnections[data.fromId];
+  }
+  if (Object.keys(peerConnections).length === 0) {
+    screenShareArea.classList.add('hidden');
+    screenShareVideo.srcObject = null;
+  }
+}
+
+// 关闭屏幕共享显示
+document.getElementById('screenShareClose').addEventListener('click', () => {
+  screenShareArea.classList.add('hidden');
+  screenShareVideo.srcObject = null;
 });
