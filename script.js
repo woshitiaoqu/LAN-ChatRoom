@@ -502,27 +502,22 @@ function updateTurnInfo(currentTurn, winnerName) {
   const el = document.getElementById('gomokuTurn');
   if (gameEndTimer) { clearInterval(gameEndTimer); gameEndTimer = null; }
   if (winnerName) {
-    if (myGameColor) {
-      const isMe = (winnerName === currentUser);
-      el.textContent = isMe ? '🎉 你赢了！' : '😢 你输了';
-    } else {
-      el.textContent = `🎉 ${winnerName} 获胜！`;
-    }
+    el.textContent = '游戏结束';
     el.style.color = '#e91e63';
-    // 30秒倒计时自动退出
-    let countdown = 30;
-    el.textContent += ` (${countdown}s后退出)`;
+    // 弹窗显示胜负
+    const isMe = myGameColor && (winnerName === currentUser);
+    const msg = myGameColor
+      ? (isMe ? '🎉 你赢了！' : '😢 你输了')
+      : `🎉 ${winnerName} 获胜！`;
+    alert(msg);
+    // 5秒后自动返回大厅
+    let countdown = 5;
     gameEndTimer = setInterval(() => {
       countdown--;
       if (countdown <= 0) {
         clearInterval(gameEndTimer);
         gameEndTimer = null;
         closeGomoku();
-      } else {
-        const base = winnerName
-          ? (myGameColor ? ((winnerName === currentUser) ? '🎉 你赢了！' : '😢 你输了') : `🎉 ${winnerName} 获胜！`)
-          : '';
-        el.textContent = base + ` (${countdown}s后退出)`;
       }
     }, 1000);
   } else if (myGameColor) {
