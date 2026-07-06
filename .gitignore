@@ -1,2 +1,7 @@
 node_modules/
 chat.db
+.env
+.env.*
+*.log
+.DS_Store
+Thumbs.db
