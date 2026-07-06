@@ -576,3 +576,31 @@ body.spectator .gomoku-cell:hover {
 .invite-decline:hover {
   background: #e0e0e0;
 }
+
+/* ===== 贪吃蛇 ===== */
+.snake-container {
+  padding: 0;
+  max-width: 620px;
+}
+.snake-info {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 20px;
+  font-size: 13px;
+  color: #666;
+  border-bottom: 1px solid #eee;
+}
+.snake-board-wrap {
+  position: relative;
+  overflow: hidden;
+  background: #1a1a2e;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 10px;
+}
+#snakeCanvas {
+  display: block;
+  border: 2px solid #333;
+  border-radius: 4px;
+}
