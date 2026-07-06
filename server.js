@@ -1141,7 +1141,8 @@ wss.on('connection', async (ws, req) => {
         const needShips = [2, 2, 3];
         if ((game.placed[game.players[0]?.id] || 0) >= needShips.length && (game.placed[game.players[1]?.id] || 0) >= needShips.length) {
           game.phase = 'playing';
-          gameManager.broadcastToGame(parsedMessage.gameId, { type: 'battleship_start', gameId: parsedMessage.gameId });
+          game.currentTurn = game.players[0].id;
+          gameManager.broadcastToGame(parsedMessage.gameId, { type: 'battleship_start', gameId: parsedMessage.gameId, currentTurn: game.currentTurn });
         }
         return;
       }

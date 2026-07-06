@@ -15,9 +15,12 @@
       this.myName = GameSystem.getCurrentUser();
       const me = game.players.find(p => p.name === this.myName);
       this.myId = me ? me.id : null;
+      this.playerIdx = this.myId ? game.players.findIndex(p => p.id === this.myId) : -1;
       this.phase = 'placing';
       this.placingIndex = 0;
       this.shipsToPlace = [2, 2, 3];
+      this.myBoard = Array(6).fill(null).map(() => Array(6).fill(null));
+      this.attackBoard = Array(6).fill(null).map(() => Array(6).fill(null));
       document.body.classList.toggle('spectator', !this.myId);
       $('bsTitle').textContent = this.myId ? '🚢 海战棋' : '🚢 海战棋 (👀 观战中)';
       $('bsPhase').textContent = '布置船只...';
@@ -32,7 +35,8 @@
     close() {
       $('bsModal').classList.add('hidden');
       document.body.classList.remove('spectator');
-      this.gameId = null; this.myId = null; this.phase = null;
+      this.gameId = null; this.myId = null; this.phase = null; this.playerIdx = -1;
+      this.myBoard = null; this.attackBoard = null;
       $('bsPlacementUI').classList.add('hidden');
       $('bsChatMessages').innerHTML = '';
       GameSystem.getLobbyEl().classList.remove('hidden');
@@ -98,6 +102,12 @@
       if (this.placingIndex >= this.shipsToPlace.length) return;
       const dir = document.querySelector('input[name="bsDir"]:checked')?.value || 'h';
       const len = this.shipsToPlace[this.placingIndex];
+      for (let i = 0; i < len; i++) {
+        const r = dir === 'h' ? row : row + i;
+        const c = dir === 'h' ? col + i : col;
+        if (r < 6 && c < 6) this.myBoard[r][c] = 'ship';
+      }
+      this.renderMyBoard(this.myBoard);
       GameSystem.getSocket().send(JSON.stringify({
         type: 'battleship_place', gameId: this.gameId,
         row, col, dir, length: len
@@ -126,12 +136,23 @@
       this.phase = 'playing';
       $('bsPhase').textContent = '战斗开始！';
       $('bsPlacementUI').classList.add('hidden');
-      this.setStatus('点击敌方海域攻击');
-      this.renderMyBoard(Array(6).fill(null).map(() => Array(6).fill(null)));
+      this.renderMyBoard(this.myBoard);
+      this.renderEnemyBoard(this.attackBoard);
+      const myTurn = data.currentTurn === this.myId;
+      this.setStatus(myTurn ? '点击敌方海域攻击' : '等待对手...');
     },
 
     handleBattleshipResult(data) {
-      if (data.attacker === 'p1' || data.attacker === 'p2') {
+      const myKey = 'p' + (this.playerIdx + 1);
+      if (data.attacker === myKey) {
+        this.attackBoard[data.row][data.col] = data.hit ? 'hit' : 'miss';
+        this.renderEnemyBoard(this.attackBoard);
+      } else {
+        this.myBoard[data.row][data.col] = data.hit ? 'hit' : 'miss';
+        this.renderMyBoard(this.myBoard);
+      }
+      if (data.currentTurn) {
+        this.setStatus(data.currentTurn === this.myId ? '点击敌方海域攻击' : '等待对手...');
       }
       if (data.allSunk) {
         $('bsPhase').textContent = '游戏结束';
