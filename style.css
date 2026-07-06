@@ -73,7 +73,7 @@ button:hover {
 }
 
 .hidden {
-  display: none;
+  display: none !important;
 }
 
 .message {
@@ -639,4 +639,37 @@ body.spectator .gomoku-cell:hover {
   cursor: pointer;
   color: #999;
 }
+
+#screenShareVideo:-webkit-full-screen { width:100%; height:100%; }
+#screenShareVideo:fullscreen { width:100%; height:100%; }
+
+.sharer-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+.sharer-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  background: #e3f2fd;
+  border-radius: 6px;
+  font-size: 13px;
+}
+.sharer-item .sharer-name { color: #1565c0; font-weight: 500; }
+.sharer-item .sharer-watching { color: #999; font-size: 12px; }
+.sharer-item button {
+  background: #1976d2;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  padding: 3px 10px;
+  cursor: pointer;
+  font-size: 12px;
+}
+.sharer-item button:hover { background: #1565c0; }
+.sharer-item .stop-watch-btn { background: #ff4757; }
+.sharer-item .stop-watch-btn:hover { background: #e84142; }
 

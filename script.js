@@ -135,8 +135,8 @@ function connectWebSocket() {
       alert('邀请已发送，等待 ' + data.targetUsername + ' 响应...');
     } else if (data.type === 'game_invite_declined') {
       alert(data.targetUsername + ' 拒绝了你的邀请');
-    } else if (data.type === 'screen_share_start') {
-      handleScreenShareStartMsg(data);
+    } else if (data.type === 'sharer_list') {
+      handleSharerListMsg(data);
     } else if (data.type === 'screen_share_stop') {
       handleScreenShareStopMsg(data);
     } else if (data.type === 'webrtc_signal') {
@@ -661,19 +661,26 @@ let peerConnections = {}; // peerId → RTCPeerConnection
 const screenShareVideo = document.getElementById('screenShareVideo');
 const screenShareArea = document.getElementById('screenShareArea');
 const screenShareName = document.getElementById('screenShareName');
-const screenShareNotify = document.getElementById('screenShareNotify');
-const screenShareNotifyText = document.getElementById('screenShareNotifyText');
-let pendingShareSharer = null; // 正在共享的人
+const sharerListEl = document.getElementById('sharerList');
+let currentSharers = {}; // id → { name }
+let watchingSharerId = null; // 当前正在观看的 sharer id
 
 document.getElementById('screenShareBtn').addEventListener('click', async () => {
   if (localScreenStream) { stopScreenShare(); return; }
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
+    const host = window.location.host;
+    const msg = '屏幕共享不可用：当前为非安全上下文（HTTP），浏览器禁止屏幕共享。\n\n解决方法：\n1. 在浏览器地址栏输入：edge://flags/#unsafely-treat-insecure-origin-as-secure\n2. 启用该选项，在输入框中添加：http://' + host + '\n3. 点击右下角"Relaunch"重启浏览器';
+    document.getElementById('shareUnsupportedText').textContent = msg;
+    document.getElementById('shareUnsupportedModal').classList.remove('hidden');
+    return;
+  }
   try {
     localScreenStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
     document.getElementById('screenShareBtn').textContent = '⏹ 停止';
     document.getElementById('screenShareBtn').style.background = '#ff4757';
     socket.send(JSON.stringify({ type: 'screen_share_start' }));
     localScreenStream.getVideoTracks()[0].onended = () => stopScreenShare();
-  } catch (e) { console.log('屏幕共享取消'); }
+  } catch (e) { console.log('屏幕共享取消:', e.message); }
 });
 
 function stopScreenShare() {
@@ -684,49 +691,96 @@ function stopScreenShare() {
   socket.send(JSON.stringify({ type: 'screen_share_stop' }));
 }
 
-// 有人开始共享 → 显示通知条
-function handleScreenShareStartMsg(data) {
-  if (data.fromId === clientId || localScreenStream) return;
-  pendingShareSharer = { id: data.fromId, name: data.fromName };
-  screenShareNotifyText.textContent = data.fromName + ' 正在共享屏幕';
-  screenShareNotify.classList.remove('hidden');
+// 关闭屏幕共享不可用弹窗
+document.getElementById('shareUnsupportedClose').addEventListener('click', () => {
+  document.getElementById('shareUnsupportedModal').classList.add('hidden');
+});
+
+// 收到共享者列表 → 渲染列表
+function handleSharerListMsg(data) {
+  const myServerId = data.yourId;
+  const newSharers = {};
+  data.sharers.forEach(s => {
+    if (s.id != myServerId) { newSharers[s.id] = { name: s.name }; }
+  });
+  // 检测已停止共享的人，清理连接
+  for (const id in currentSharers) {
+    if (!newSharers[id]) {
+      const idNum = Number(id);
+      if (peerConnections[idNum]) { peerConnections[idNum].close(); delete peerConnections[idNum]; }
+      if (watchingSharerId === idNum) { watchingSharerId = null; screenShareArea.classList.add('hidden'); screenShareVideo.srcObject = null; }
+    }
+  }
+  currentSharers = newSharers;
+  renderSharerList();
 }
 
-// 点击"加入观看" → 创建 PeerConnection 并发 offer
-document.getElementById('screenShareJoinBtn').addEventListener('click', () => {
-  if (!pendingShareSharer) return;
-  screenShareNotify.classList.add('hidden');
+function renderSharerList() {
+  const ids = Object.keys(currentSharers);
+  if (ids.length === 0) { sharerListEl.classList.add('hidden'); sharerListEl.innerHTML = ''; return; }
+  sharerListEl.classList.remove('hidden');
+  sharerListEl.innerHTML = ids.map(id => {
+    const s = currentSharers[id];
+    const isWatching = watchingSharerId === id;
+    return '<div class="sharer-item">' +
+      '<span class="sharer-name">' + s.name + ' 正在共享屏幕</span>' +
+      (isWatching
+        ? '<span class="sharer-watching">正在观看</span><button class="stop-watch-btn" onclick="stopWatching()">停止观看</button>'
+        : '<button onclick="startWatching(\'' + id + '\')">加入观看</button>') +
+      '</div>';
+  }).join('');
+}
+
+// 观看某个共享者
+function startWatching(sharerId) {
+  sharerId = Number(sharerId);
+  if (watchingSharerId) {
+    if (peerConnections[watchingSharerId]) { peerConnections[watchingSharerId].close(); delete peerConnections[watchingSharerId]; }
+  }
+  watchingSharerId = sharerId;
+  const sharer = currentSharers[sharerId];
+  if (!sharer) return;
   const pc = new RTCPeerConnection({ iceServers: [] });
-  peerConnections[pendingShareSharer.id] = pc;
+  peerConnections[sharerId] = pc;
+  pc.addTransceiver('video', { direction: 'recvonly' });
+  pc.oniceconnectionstatechange = () => console.log('[屏幕共享] ICE状态:', pc.iceConnectionState);
   pc.onicecandidate = (e) => {
-    if (e.candidate) socket.send(JSON.stringify({ type: 'webrtc_signal', targetId: pendingShareSharer.id, signal: e.candidate }));
+    if (e.candidate) socket.send(JSON.stringify({ type: 'webrtc_signal', targetId: sharerId, signal: e.candidate }));
   };
   pc.ontrack = (e) => {
+    console.log('[屏幕共享] ontrack 触发, 流:', !!e.streams[0], '轨道数:', e.streams[0]?.getTracks().length);
     screenShareVideo.srcObject = e.streams[0];
-    screenShareName.textContent = pendingShareSharer.name + ' 的屏幕';
+    screenShareName.textContent = sharer.name + ' 的屏幕';
     screenShareArea.classList.remove('hidden');
+    screenShareVideo.play().catch(() => {});
   };
   pc.createOffer().then(offer => pc.setLocalDescription(offer)).then(() => {
-    socket.send(JSON.stringify({ type: 'webrtc_signal', targetId: pendingShareSharer.id, signal: pc.localDescription }));
+    socket.send(JSON.stringify({ type: 'webrtc_signal', targetId: sharerId, signal: pc.localDescription }));
   });
-  pendingShareSharer = null;
-});
+  renderSharerList();
+}
 
-// 关闭通知条
-document.getElementById('screenShareNotifyClose').addEventListener('click', () => {
-  screenShareNotify.classList.add('hidden');
-  pendingShareSharer = null;
-});
+// 停止观看
+function stopWatching() {
+  if (watchingSharerId && peerConnections[watchingSharerId]) {
+    peerConnections[watchingSharerId].close();
+    delete peerConnections[watchingSharerId];
+  }
+  watchingSharerId = null;
+  screenShareArea.classList.add('hidden');
+  screenShareVideo.srcObject = null;
+  renderSharerList();
+}
 
-// 统一处理 WebRTC 信令
+// WebRTC 信令处理
 function handleWebRTCSignal(data) {
   const { fromId, fromName, signal } = data;
   if (signal.type === 'offer') {
-    // 共享者收到观众的 offer → 加入自己的流，回 answer
     let pc = peerConnections[fromId];
     if (!pc) {
       pc = new RTCPeerConnection({ iceServers: [] });
       peerConnections[fromId] = pc;
+      pc.oniceconnectionstatechange = () => console.log('[屏幕共享-被观看端] ICE状态:', pc.iceConnectionState, 'from:', fromName);
       pc.onicecandidate = (e) => {
         if (e.candidate) socket.send(JSON.stringify({ type: 'webrtc_signal', targetId: fromId, signal: e.candidate }));
       };
@@ -734,12 +788,15 @@ function handleWebRTCSignal(data) {
         screenShareVideo.srcObject = e.streams[0];
         screenShareName.textContent = fromName + ' 的屏幕';
         screenShareArea.classList.remove('hidden');
+        screenShareVideo.play().catch(() => {});
       };
     }
-    if (localScreenStream) {
-      localScreenStream.getTracks().forEach(t => pc.addTrack(t, localScreenStream));
-    }
-    pc.setRemoteDescription(new RTCSessionDescription(signal)).then(() => pc.createAnswer())
+    pc.setRemoteDescription(new RTCSessionDescription(signal)).then(() => {
+      if (localScreenStream) {
+        localScreenStream.getTracks().forEach(t => pc.addTrack(t, localScreenStream));
+      }
+      return pc.createAnswer();
+    })
       .then(answer => pc.setLocalDescription(answer)).then(() => {
         socket.send(JSON.stringify({ type: 'webrtc_signal', targetId: fromId, signal: pc.localDescription }));
       });
@@ -753,12 +810,56 @@ function handleWebRTCSignal(data) {
 }
 
 function handleScreenShareStopMsg(data) {
+  // 兼容旧的单独 stop 消息（从 share_list 也能处理）
   if (peerConnections[data.fromId]) { peerConnections[data.fromId].close(); delete peerConnections[data.fromId]; }
-  if (Object.keys(peerConnections).length === 0) { screenShareArea.classList.add('hidden'); screenShareVideo.srcObject = null; }
-  if (pendingShareSharer && pendingShareSharer.id === data.fromId) { screenShareNotify.classList.add('hidden'); pendingShareSharer = null; }
+  if (watchingSharerId === data.fromId) { watchingSharerId = null; screenShareArea.classList.add('hidden'); screenShareVideo.srcObject = null; }
+  delete currentSharers[data.fromId];
+  renderSharerList();
 }
 
-document.getElementById('screenShareClose').addEventListener('click', () => {
-  screenShareArea.classList.add('hidden');
-  screenShareVideo.srcObject = null;
+// 关闭观看区域
+document.getElementById('screenShareClose').addEventListener('click', stopWatching);
+
+// 自定义全屏
+document.getElementById('screenShareFullscreenBtn').addEventListener('click', () => {
+  const video = document.getElementById('screenShareVideo');
+  if (document.getElementById('customFullscreenOverlay')) return;
+  const w = prompt('全屏窗口宽度（如 90% 或 800px）', '90%');
+  if (!w) return;
+  const h = prompt('全屏窗口高度（如 90% 或 600px）', '90%');
+  if (!h) return;
+  const overlay = document.createElement('div');
+  overlay.id = 'customFullscreenOverlay';
+  overlay.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:' + w + ';height:' + h + ';z-index:9999;background:#000;border-radius:8px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 0 40px rgba(0,0,0,0.8);';
+  const header = document.createElement('div');
+  header.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:6px 12px;background:rgba(0,0,0,0.7);color:#fff;font-size:13px;flex-shrink:0;';
+  const span = document.createElement('span');
+  span.textContent = screenShareName.textContent || '全屏观看';
+  const closeBtn = document.createElement('button');
+  closeBtn.textContent = '✕';
+  closeBtn.style.cssText = 'background:none;border:none;color:#fff;font-size:16px;cursor:pointer;padding:0 4px;';
+  header.appendChild(span);
+  header.appendChild(closeBtn);
+  overlay.appendChild(header);
+  const originalParent = video.parentNode;
+  const placeholder = document.createElement('div');
+  placeholder.style.display = 'none';
+  originalParent.insertBefore(placeholder, video);
+  overlay.appendChild(video);
+  video.style.cssText = 'width:100%;flex:1;display:block;background:#000;object-fit:contain;';
+  const backdrop = document.createElement('div');
+  backdrop.id = 'customFullscreenBackdrop';
+  backdrop.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:9998;';
+  document.body.appendChild(backdrop);
+  document.body.appendChild(overlay);
+  const restore = () => {
+    placeholder.parentNode.insertBefore(video, placeholder);
+    placeholder.remove();
+    video.style.cssText = '';
+    overlay.remove();
+    backdrop.remove();
+  };
+  closeBtn.addEventListener('click', restore);
+  backdrop.addEventListener('click', restore);
+  document.addEventListener('keydown', function onEsc(e) { if (e.key === 'Escape') { restore(); document.removeEventListener('keydown', onEsc); } });
 });

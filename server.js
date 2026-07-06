@@ -211,6 +211,9 @@ let connectionCount = 0;
 const activeConnections = new Set();
 const serverStartTime = Date.now();
 
+// 当前所有共享屏幕的用户（允许多人同时共享）
+const currentSharers = new Map(); // clientId → { username }
+
 // ==================== 游戏管理模块 ====================
 const gameManager = {
   games: new Map(),       // gameId → game info
@@ -705,6 +708,11 @@ wss.on('connection', async (ws, req) => {
           userInfo.clientId = parsedMessage.clientId || null;
           userInfo.registered = true;
           console.log(`👤 用户 #${clientId} 注册成功: ${userInfo.username} [${parsedMessage.clientId || ''}] IP:${clientIp} MAC:${macAddress}`);
+          // 如果有人在共享屏幕，把当前所有共享者列表发给新用户（附带自己的 clientId）
+          if (currentSharers.size > 0) {
+            const sharerList = Array.from(currentSharers.entries()).map(([id, info]) => ({ id, name: info.username }));
+            ws.send(JSON.stringify({ type: 'sharer_list', sharers: sharerList, yourId: clientId }));
+          }
           // 广播在线用户列表更新
           gameManager.broadcastPlayerListToAll();
         } else {
@@ -921,26 +929,23 @@ wss.on('connection', async (ws, req) => {
 
       // ===== 屏幕共享信令 =====
       if (parsedMessage.type === 'screen_share_start') {
-        // 广播给其他人：有人开始共享屏幕
+        currentSharers.set(clientId, { username: userInfo.username });
+        // 广播更新后的共享者列表给所有人（附带各自的 clientId 以便过滤自己）
+        const sharerList = Array.from(currentSharers.entries()).map(([id, info]) => ({ id, name: info.username }));
         wss.clients.forEach(client => {
-          if (client.readyState === WebSocket.OPEN && client.id !== clientId) {
-            client.send(JSON.stringify({
-              type: 'screen_share_start',
-              fromId: clientId,
-              fromName: userInfo.username
-            }));
+          if (client.readyState === WebSocket.OPEN) {
+            client.send(JSON.stringify({ type: 'sharer_list', sharers: sharerList, yourId: client.id }));
           }
         });
         return;
       }
 
       if (parsedMessage.type === 'screen_share_stop') {
+        currentSharers.delete(clientId);
+        const sharerList = Array.from(currentSharers.entries()).map(([id, info]) => ({ id, name: info.username }));
         wss.clients.forEach(client => {
-          if (client.readyState === WebSocket.OPEN && client.id !== clientId) {
-            client.send(JSON.stringify({
-              type: 'screen_share_stop',
-              fromId: clientId
-            }));
+          if (client.readyState === WebSocket.OPEN) {
+            client.send(JSON.stringify({ type: 'sharer_list', sharers: sharerList, yourId: client.id }));
           }
         });
         return;
@@ -978,6 +983,16 @@ wss.on('connection', async (ws, req) => {
     gameManager.leaveGame(clientId);
     activeConnections.delete(ws);
     admin.onlineUsers.delete(clientId);
+    // 如果共享者断开连接，清除共享状态并广播列表更新
+    if (currentSharers.has(clientId)) {
+      currentSharers.delete(clientId);
+      const sharerList = Array.from(currentSharers.entries()).map(([id, info]) => ({ id, name: info.username }));
+      wss.clients.forEach(client => {
+        if (client.readyState === WebSocket.OPEN && client.id !== clientId) {
+          client.send(JSON.stringify({ type: 'sharer_list', sharers: sharerList, yourId: client.id }));
+        }
+      });
+    }
     // 广播在线用户列表和游戏列表更新
     gameManager.broadcastPlayerListToAll();
     gameManager.broadcastGameListToAll();
