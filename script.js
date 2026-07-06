@@ -328,13 +328,21 @@ const lobbyClose = document.getElementById('lobbyClose');
 const gomokuClose = document.getElementById('gomokuClose');
 
 // 打开游戏大厅
+let lobbyRefreshTimer = null;
+
 gameBtn.addEventListener('click', () => {
   gameLobby.classList.remove('hidden');
-  socket.send(JSON.stringify({ type: 'game_list' }));
-  socket.send(JSON.stringify({ type: 'game_players' }));
+  refreshLobby();
 });
 
-lobbyClose.addEventListener('click', () => gameLobby.classList.add('hidden'));
+lobbyClose.addEventListener('click', () => {
+  gameLobby.classList.add('hidden');
+});
+
+function refreshLobby() {
+  socket.send(JSON.stringify({ type: 'game_list' }));
+  socket.send(JSON.stringify({ type: 'game_players' }));
+}
 gomokuClose.addEventListener('click', () => {
   if (currentGameId) {
     socket.send(JSON.stringify({ type: 'game_leave', gameId: currentGameId }));
@@ -567,8 +575,7 @@ function closeGomoku() {
   document.getElementById('gomokuChatMessages').innerHTML = '';
   // 返回游戏大厅
   gameLobby.classList.remove('hidden');
-  socket.send(JSON.stringify({ type: 'game_list' }));
-  socket.send(JSON.stringify({ type: 'game_players' }));
+  refreshLobby();
 }
 
 // ===== 邀请对战 =====

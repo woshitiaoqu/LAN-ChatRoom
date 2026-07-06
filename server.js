@@ -400,6 +400,22 @@ const gameManager = {
       }
     }
     return list;
+  },
+
+  // 向所有连接的客户端广播游戏列表
+  broadcastGameListToAll() {
+    const data = JSON.stringify({ type: 'game_list', games: this.getGameList() });
+    wss.clients.forEach(client => {
+      if (client.readyState === WebSocket.OPEN) client.send(data);
+    });
+  },
+
+  // 向所有连接的客户端广播在线玩家列表
+  broadcastPlayerListToAll() {
+    const data = JSON.stringify({ type: 'game_players', players: this.getOnlinePlayerList() });
+    wss.clients.forEach(client => {
+      if (client.readyState === WebSocket.OPEN) client.send(data);
+    });
   }
 };
 
@@ -681,6 +697,8 @@ wss.on('connection', async (ws, req) => {
           userInfo.clientId = parsedMessage.clientId || null;
           userInfo.registered = true;
           console.log(`👤 用户 #${clientId} 注册成功: ${userInfo.username} [${parsedMessage.clientId || ''}] IP:${clientIp} MAC:${macAddress}`);
+          // 广播在线用户列表更新
+          gameManager.broadcastPlayerListToAll();
         } else {
           console.log(`❌ 用户 #${clientId} 注册失败: 用户名为空`);
         }
@@ -712,7 +730,7 @@ wss.on('connection', async (ws, req) => {
       // ===== 游戏消息处理 =====
       if (parsedMessage.type === 'game_create') {
         const game = gameManager.createGame(parsedMessage.gameType, clientId, userInfo.username);
-        gameManager.broadcastToGame(game.id, { type: 'game_list', games: gameManager.getGameList() });
+        gameManager.broadcastGameListToAll();
         ws.send(JSON.stringify({ type: 'game_created', game }));
         return;
       }
@@ -730,7 +748,7 @@ wss.on('connection', async (ws, req) => {
             type: 'game_start',
             game: { id: result.game.id, type: result.game.type, players: result.game.players, board: result.game.board, currentTurn: result.game.currentTurn, winner: winnerName }
           });
-          gameManager.broadcastToGame(parsedMessage.gameId, { type: 'game_list', games: gameManager.getGameList() });
+          gameManager.broadcastGameListToAll();
         } else {
           ws.send(JSON.stringify({ type: 'game_error', error: result.error }));
         }
@@ -782,7 +800,7 @@ wss.on('connection', async (ws, req) => {
       if (parsedMessage.type === 'game_leave') {
         gameManager.leaveGame(clientId);
         ws.send(JSON.stringify({ type: 'game_left' }));
-        gameManager.broadcastToGame(parsedMessage.gameId, { type: 'game_list', games: gameManager.getGameList() });
+        gameManager.broadcastGameListToAll();
         return;
       }
 
@@ -840,7 +858,7 @@ wss.on('connection', async (ws, req) => {
           gameId: game.id,
           targetUsername: targetName
         }));
-        gameManager.broadcastToGame(game.id, { type: 'game_list', games: gameManager.getGameList() });
+        gameManager.broadcastGameListToAll();
         return;
       }
 
@@ -859,7 +877,7 @@ wss.on('connection', async (ws, req) => {
             type: 'game_start',
             game: { id: result.game.id, type: result.game.type, players: result.game.players, board: result.game.board, currentTurn: result.game.currentTurn }
           });
-          gameManager.broadcastToGame(parsedMessage.gameId, { type: 'game_list', games: gameManager.getGameList() });
+          gameManager.broadcastGameListToAll();
         } else {
           ws.send(JSON.stringify({ type: 'game_error', error: result.error }));
         }
@@ -888,7 +906,7 @@ wss.on('connection', async (ws, req) => {
           }
           // 删除游戏
           gameManager.games.delete(parsedMessage.gameId);
-          gameManager.broadcastToGame(parsedMessage.gameId, { type: 'game_list', games: gameManager.getGameList() });
+          gameManager.broadcastGameListToAll();
         }
         return;
       }
@@ -908,6 +926,8 @@ wss.on('connection', async (ws, req) => {
   ws.on('close', () => {
     activeConnections.delete(ws);
     admin.onlineUsers.delete(clientId);
+    // 广播在线用户列表更新
+    gameManager.broadcastPlayerListToAll();
   });
 
   ws.on('error', (error) => {
