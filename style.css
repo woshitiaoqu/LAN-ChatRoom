@@ -395,6 +395,10 @@ body.mini-mode .stealth-toggle {
   color: #666;
   border-bottom: 1px solid #eee;
 }
+.gomoku-board-wrap {
+  position: relative;
+  overflow: hidden;
+}
 .gomoku-board {
   display: grid;
   grid-template-columns: repeat(15, 1fr);
@@ -402,6 +406,30 @@ body.mini-mode .stealth-toggle {
   padding: 15px;
   background: #dcb35c;
   user-select: none;
+}
+/* 弹幕层 */
+.danmaku-layer {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 10;
+}
+.danmaku-item {
+  position: absolute;
+  white-space: nowrap;
+  font-size: 14px;
+  font-weight: bold;
+  color: #fff;
+  text-shadow: 1px 1px 2px rgba(0,0,0,0.6);
+  animation: danmaku-move linear forwards;
+  pointer-events: none;
+}
+@keyframes danmaku-move {
+  from { transform: translateX(100%); }
+  to { transform: translateX(calc(-100% - 100vw)); }
 }
 .gomoku-cell {
   width: 100%;

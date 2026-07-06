@@ -556,12 +556,31 @@ function sendGomokuChat() {
 }
 
 function addGomokuChat(data) {
+  // 底部聊天记录
   const container = document.getElementById('gomokuChatMessages');
   const div = document.createElement('div');
   div.className = 'chat-msg';
   div.innerHTML = `<span class="chat-name">${data.username}</span><span class="chat-time">${data.time}</span> ${data.content}`;
   container.appendChild(div);
   container.scrollTop = container.scrollHeight;
+
+  // 弹幕效果
+  const layer = document.getElementById('danmakuLayer');
+  if (!layer) return;
+  const danmaku = document.createElement('div');
+  danmaku.className = 'danmaku-item';
+  danmaku.textContent = `${data.username}: ${data.content}`;
+  // 随机颜色
+  const colors = ['#fff', '#ff0', '#0ff', '#f90', '#f0f', '#0f0'];
+  danmaku.style.color = colors[Math.floor(Math.random() * colors.length)];
+  // 随机垂直位置（10% ~ 80%）
+  danmaku.style.top = (10 + Math.random() * 70) + '%';
+  // 随机动画时长（5~8秒）
+  const duration = 5 + Math.random() * 3;
+  danmaku.style.animationDuration = duration + 's';
+  layer.appendChild(danmaku);
+  // 动画结束后删除元素
+  danmaku.addEventListener('animationend', () => danmaku.remove());
 }
 
 // 关闭五子棋
