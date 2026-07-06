@@ -1,13 +1,13 @@
 # 局域网聊天室
 
-基于 WebSocket 的局域网即时聊天应用，支持多用户实时聊天、游戏对战、管理控制台。
+基于 WebSocket 的局域网即时聊天应用，支持多用户实时聊天、五子棋对战、管理控制台。
 
 ## 功能特性
 
 - 实时消息传输（WebSocket）
 - 多用户支持，自定义用户名
 - 图片发送（base64，限制 5MB）
-- 五子棋对战（邀请、观战、观战聊天）
+- 五子棋对战（创建房间、邀请对战、观战、弹幕聊天）
 - 管理控制台（踢出用户、禁言、IP/MAC 黑名单、屏蔽词）
 - 小窗模式（Ctrl+Shift+H）
 - SQLite 消息持久化
@@ -60,9 +60,9 @@ http://localhost:8082
 
 ```
 LAN-ChatRoom/
-├── server.js           # 后端服务器（Express + WebSocket + 游戏模块）
+├── server.js           # 后端服务器（Express + WebSocket + 五子棋模块）
 ├── adminConsole.js     # 管理控制台
-├── script.js           # 前端逻辑（聊天 + 游戏 + 小窗）
+├── script.js           # 前端逻辑（聊天 + 五子棋 + 小窗）
 ├── index.html          # 页面结构
 ├── style.css           # 样式表
 ├── package.json        # 项目配置
@@ -74,4 +74,3 @@ LAN-ChatRoom/
 - 确保所有用户在同一个局域网内
 - 默认端口 8082，可在 `server.js` 中修改
 - 数据库文件 `chat.db` 包含聊天记录，已在 `.gitignore` 中排除
-- `mongodb` 是残留依赖，项目实际使用 SQLite
