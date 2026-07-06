@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🎮 游戏大厅 - 局域网聊天室</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <h1>🎮 游戏大厅</h1>
+    <div style="text-align:right;margin-bottom:10px;">
+      <a href="index.html" style="color:#007bff;text-decoration:none;">← 返回聊天室</a>
+    </div>
+
+    <!-- 等待连接提示 -->
+    <div id="loadingTip" style="text-align:center;padding:40px;color:#999;">正在连接服务器...</div>
+
+    <!-- 游戏大厅 -->
+    <div id="gameLobby" class="hidden">
+
+      <!-- 单机游戏 -->
+      <div class="game-section">
+        <h3>🕹️ 单机游戏 <span style="font-weight:normal;font-size:12px;color:#999;">（共19款）</span></h3>
+        <div class="game-list">
+          <div class="game-card" data-game="2048" data-mode="single">
+            <div class="game-icon">🎲</div>
+            <div class="game-name">2048</div>
+            <div class="game-desc">合并方块，挑战2048</div>
+          </div>
+          <div class="game-card" data-game="airplane" data-mode="single">
+            <div class="game-icon">✈️</div>
+            <div class="game-name">飞机大战</div>
+            <div class="game-desc">躲避敌机，射击生存</div>
+          </div>
+          <div class="game-card" data-game="bubble-pop" data-mode="single">
+            <div class="game-icon">🫧</div>
+            <div class="game-name">打泡泡</div>
+            <div class="game-desc">60秒狂点泡泡</div>
+          </div>
+          <div class="game-card" data-game="emoji-match" data-mode="single">
+            <div class="game-icon">😊</div>
+            <div class="game-name">Emoji连连看</div>
+            <div class="game-desc">记忆翻牌配对</div>
+          </div>
+          <div class="game-card" data-game="flappy-bird" data-mode="single">
+            <div class="game-icon">🐤</div>
+            <div class="game-name">Flappy Bird</div>
+            <div class="game-desc">点击飞行，穿越管道</div>
+          </div>
+          <div class="game-card" data-game="flappy-parkour" data-mode="single">
+            <div class="game-icon">🏃</div>
+            <div class="game-name">Flappy跑酷</div>
+            <div class="game-desc">跳跃穿越障碍</div>
+          </div>
+          <div class="game-card" data-game="jump" data-mode="single">
+            <div class="game-icon">🦘</div>
+            <div class="game-name">跳一跳</div>
+            <div class="game-desc">蓄力跳跃闯关</div>
+          </div>
+          <div class="game-card" data-game="math-challenge" data-mode="single">
+            <div class="game-icon">🧮</div>
+            <div class="game-name">数学挑战</div>
+            <div class="game-desc">60秒速算挑战</div>
+          </div>
+          <div class="game-card" data-game="maze" data-mode="single">
+            <div class="game-icon">🌀</div>
+            <div class="game-name">迷宫</div>
+            <div class="game-desc">键盘方向键走出迷宫</div>
+          </div>
+          <div class="game-card" data-game="parkour" data-mode="single">
+            <div class="game-icon">🏄</div>
+            <div class="game-name">跑酷</div>
+            <div class="game-desc">跳跃躲避障碍物</div>
+          </div>
+          <div class="game-card" data-game="reaction-test" data-mode="single">
+            <div class="game-icon">⚡</div>
+            <div class="game-name">反应测试</div>
+            <div class="game-desc">测试你的反应速度</div>
+          </div>
+          <div class="game-card" data-game="rhythm-tap" data-mode="single">
+            <div class="game-icon">🎵</div>
+            <div class="game-name">节奏敲击</div>
+            <div class="game-desc">跟着节奏点击音符</div>
+          </div>
+          <div class="game-card" data-game="snake" data-mode="single">
+            <div class="game-icon">🐍</div>
+            <div class="game-name">贪吃蛇</div>
+            <div class="game-desc">经典贪吃蛇吃食物</div>
+          </div>
+          <div class="game-card" data-game="speed-tetris" data-mode="single">
+            <div class="game-icon">⚡</div>
+            <div class="game-name">极速俄罗斯</div>
+            <div class="game-desc">高速俄罗斯方块</div>
+          </div>
+          <div class="game-card" data-game="tetris" data-mode="single">
+            <div class="game-icon">🧱</div>
+            <div class="game-name">俄罗斯方块</div>
+            <div class="game-desc">经典方块消除</div>
+          </div>
+          <div class="game-card" data-game="typing-master" data-mode="single">
+            <div class="game-icon">⌨️</div>
+            <div class="game-name">打字大师</div>
+            <div class="game-desc">60秒打字速度测试</div>
+          </div>
+          <div class="game-card" data-game="whack-mole" data-mode="single">
+            <div class="game-icon">🔨</div>
+            <div class="game-name">打地鼠</div>
+            <div class="game-desc">限时打地鼠得分</div>
+          </div>
+          <div class="game-card" data-game="rps" data-mode="single">
+            <div class="game-icon">✂️</div>
+            <div class="game-name">石头剪刀布</div>
+            <div class="game-desc">和AI猜拳对决</div>
+          </div>
+          <div class="game-card" data-game="tic-tac-toe" data-mode="single">
+            <div class="game-icon">⭕</div>
+            <div class="game-name">井字棋</div>
+            <div class="game-desc">和AI三连棋对战</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 联机游戏 -->
+      <div class="game-section">
+        <h3>🌐 联机游戏（局域网）</h3>
+        <div class="game-list">
+          <div class="game-card" data-game="gomoku" data-mode="multi">
+            <div class="game-icon">⚫</div>
+            <div class="game-name">五子棋</div>
+            <div class="game-desc">经典黑白棋，五子连珠获胜</div>
+          </div>
+        </div>
+        <div style="margin-top: 10px; text-align: right;">
+          <button class="game-btn-create" id="createGameBtn">创建房间</button>
+        </div>
+      </div>
+
+      <div class="game-section">
+        <h3>进行中的游戏</h3>
+        <div id="activeGames" class="active-games">
+          <p class="empty-tip">暂无进行中的游戏</p>
+        </div>
+      </div>
+      <div class="game-section">
+        <h3>选择对手</h3>
+        <div id="playerList" class="player-list">
+          <p class="empty-tip">加载中...</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 单机游戏 iframe 弹窗 -->
+  <div class="modal hidden" id="iframeGameModal">
+    <div class="modal-content game-iframe-modal">
+      <div class="modal-header">
+        <h2 id="iframeGameTitle">游戏</h2>
+        <button class="modal-close" id="iframeGameClose">✕</button>
+      </div>
+      <div class="game-iframe-wrap">
+        <iframe id="iframeGameFrame" frameborder="0" allowfullscreen></iframe>
+      </div>
+    </div>
+  </div>
+
+  <!-- 五子棋棋盘弹窗 -->
+  <div class="modal hidden" id="gomokuModal">
+    <div class="modal-content gomoku-container">
+      <div class="modal-header">
+        <h2 id="gomokuTitle">⚫ 五子棋</h2>
+        <button class="modal-close" id="gomokuClose">✕</button>
+      </div>
+      <div class="gomoku-info">
+        <span id="gomokuTurn"></span>
+        <span id="gomokuSpectators">观战: 0人</span>
+      </div>
+      <div class="gomoku-board-wrap">
+        <div class="gomoku-board" id="gomokuBoard"></div>
+        <div class="danmaku-layer" id="danmakuLayer"></div>
+      </div>
+      <div class="gomoku-chat">
+        <div class="gomoku-chat-messages" id="gomokuChatMessages"></div>
+        <div class="gomoku-chat-input">
+          <input type="text" id="gomokuChatInput" placeholder="发弹幕聊天...">
+          <button id="gomokuChatSend">发送</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 邀请弹窗 -->
+  <div class="modal hidden" id="inviteModal">
+    <div class="modal-content invite-popup">
+      <div class="invite-header">🎮 游戏邀请</div>
+      <div class="invite-body">
+        <div class="invite-icon">⚫</div>
+        <div class="invite-text" id="inviteText">邀请你来五子棋对战！</div>
+        <div class="invite-from" id="inviteFrom"></div>
+      </div>
+      <div class="invite-actions">
+        <button class="invite-btn invite-accept" id="inviteAccept">接受</button>
+        <button class="invite-btn invite-decline" id="inviteDecline">拒绝</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="game.js"></script>
+  <script src="gomoku.js"></script>
+</body>
+</html>
