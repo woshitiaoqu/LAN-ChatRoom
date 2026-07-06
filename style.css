@@ -428,8 +428,8 @@ body.mini-mode .stealth-toggle {
   pointer-events: none;
 }
 @keyframes danmaku-move {
-  from { transform: translateX(100%); }
-  to { transform: translateX(calc(-100% - 100vw)); }
+  from { transform: translateX(100vw); }
+  to { transform: translateX(calc(-100% - 50px)); }
 }
 .gomoku-cell {
   width: 100%;

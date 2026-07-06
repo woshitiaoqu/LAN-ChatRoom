@@ -571,8 +571,8 @@ function addGomokuChat(data) {
   danmaku.style.color = colors[Math.floor(Math.random() * colors.length)];
   // 随机垂直位置（10% ~ 80%）
   danmaku.style.top = (10 + Math.random() * 70) + '%';
-  // 随机动画时长（5~8秒）
-  const duration = 5 + Math.random() * 3;
+  // 随机动画时长（8~12秒）
+  const duration = 8 + Math.random() * 4;
   danmaku.style.animationDuration = duration + 's';
   layer.appendChild(danmaku);
   // 动画结束后删除元素
