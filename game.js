@@ -45,7 +45,7 @@ const singlePlayerGames = {
   tetris: { title: '🧱 俄罗斯方块', url: 'games/tetris/' },
   'typing-master': { title: '⌨️ 打字大师', url: 'games/typing-master/' },
   'whack-mole': { title: '🔨 打地鼠', url: 'games/whack-mole/' },
-  rps: { title: '✂️ 石头剪刀布', url: 'games/rps/' }
+
 };
 
 // ===== 状态 =====
@@ -147,6 +147,12 @@ function connectWebSocket() {
       case 'game_invite_received':
         showInviteModal(data);
         break;
+      case 'rps_choice_made':
+        if (currentModule) currentModule.handleChoiceMade(data);
+        break;
+      case 'rps_result':
+        if (currentModule) currentModule.handleRpsResult(data);
+        break;
       case 'game_invite_sent':
         alert('邀请已发送，等待 ' + data.targetUsername + ' 响应...');
         break;
@@ -222,7 +228,7 @@ function renderActiveGames(games) {
     activeGamesEl.innerHTML = '<p class="empty-tip">暂无进行中的游戏</p>';
     return;
   }
-  const gameNames = { gomoku: '⚫ 五子棋', tictactoe: '⭕ 井字棋' };
+  const gameNames = { gomoku: '⚫ 五子棋', tictactoe: '⭕ 井字棋', rps: '✂️ 石头剪刀布' };
   activeGamesEl.innerHTML = others.map(g => {
     const statusText = g.status === 'waiting' ? '⏳ 等待加入' : '🎮 进行中';
     const specText = g.spectatorCount > 0 ? `👀 ${g.spectatorCount}人观战` : '';
@@ -274,8 +280,8 @@ function invitePlayer(username) {
 // ===== 邀请系统 =====
 function showInviteModal(data) {
   pendingInvite = data;
-  const gameNames = { gomoku: '五子棋', tictactoe: '井字棋' };
-  const gameIcons = { gomoku: '⚫', tictactoe: '⭕' };
+  const gameNames = { gomoku: '五子棋', tictactoe: '井字棋', rps: '石头剪刀布' };
+  const gameIcons = { gomoku: '⚫', tictactoe: '⭕', rps: '✂️' };
   inviteText.textContent = (gameNames[data.gameType] || data.gameType) + '对战！';
   inviteFrom.textContent = data.fromUsername + ' 邀请你';
   document.querySelector('.invite-icon').textContent = gameIcons[data.gameType] || '🎮';

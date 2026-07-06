@@ -241,6 +241,9 @@ const gameManager = {
     } else if (type === 'tictactoe') {
       game.board = Array(3).fill(null).map(() => Array(3).fill(null));
       game.currentTurn = 'x';
+    } else if (type === 'rps') {
+      game.choices = {};
+      game.rpsResult = null;
     }
 
     this.games.set(gameId, game);
@@ -846,6 +849,54 @@ wss.on('connection', async (ws, req) => {
           });
         } else {
           ws.send(JSON.stringify({ type: 'game_error', error: result.error }));
+        }
+        return;
+      }
+
+      if (parsedMessage.type === 'rps_choice') {
+        const game = gameManager.games.get(parsedMessage.gameId);
+        if (!game || game.type !== 'rps') { ws.send(JSON.stringify({ type: 'game_error', error: '游戏无效' })); return; }
+        if (game.status !== 'playing') { ws.send(JSON.stringify({ type: 'game_error', error: '游戏未开始' })); return; }
+        const player = game.players.find(p => p.id === clientId);
+        if (!player) { ws.send(JSON.stringify({ type: 'game_error', error: '你不是玩家' })); return; }
+
+        const choice = parsedMessage.choice;
+        if (!['rock', 'paper', 'scissors'].includes(choice)) { ws.send(JSON.stringify({ type: 'game_error', error: '无效选择' })); return; }
+
+        game.choices[clientId] = choice;
+
+        // 如果双方都已选择，判定胜负
+        if (game.choices[game.players[0].id] && game.choices[game.players[1].id]) {
+          const c1 = game.choices[game.players[0].id];
+          const c2 = game.choices[game.players[1].id];
+          let winnerName = null;
+          if (c1 === c2) {
+            winnerName = '平局';
+          } else if (
+            (c1 === 'rock' && c2 === 'scissors') ||
+            (c1 === 'scissors' && c2 === 'paper') ||
+            (c1 === 'paper' && c2 === 'rock')
+          ) {
+            winnerName = game.players[0].name;
+          } else {
+            winnerName = game.players[1].name;
+          }
+          game.rpsResult = { p1choice: c1, p2choice: c2, winnerName };
+          gameManager.broadcastToGame(parsedMessage.gameId, {
+            type: 'rps_result',
+            gameId: parsedMessage.gameId,
+            choices: { [game.players[0].id]: c1, [game.players[1].id]: c2 },
+            winnerName
+          });
+          // 重置选择，准备下一轮
+          game.choices = {};
+        } else {
+          // 通知对方等待
+          gameManager.broadcastToGame(parsedMessage.gameId, {
+            type: 'rps_choice_made',
+            gameId: parsedMessage.gameId,
+            playerId: clientId
+          });
         }
         return;
       }

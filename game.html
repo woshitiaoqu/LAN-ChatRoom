@@ -21,7 +21,7 @@
 
       <!-- 单机游戏 -->
       <div class="game-section">
-        <h3>🕹️ 单机游戏 <span style="font-weight:normal;font-size:12px;color:#999;">（共18款）</span></h3>
+        <h3>🕹️ 单机游戏 <span style="font-weight:normal;font-size:12px;color:#999;">（共17款）</span></h3>
         <div class="game-list">
           <div class="game-card" data-game="2048" data-mode="single">
             <div class="game-icon">🎲</div>
@@ -108,11 +108,7 @@
             <div class="game-name">打地鼠</div>
             <div class="game-desc">限时打地鼠得分</div>
           </div>
-          <div class="game-card" data-game="rps" data-mode="single">
-            <div class="game-icon">✂️</div>
-            <div class="game-name">石头剪刀布</div>
-            <div class="game-desc">和AI猜拳对决</div>
-          </div>
+
         </div>
       </div>
 
@@ -129,6 +125,11 @@
             <div class="game-icon">⭕</div>
             <div class="game-name">井字棋</div>
             <div class="game-desc">两人对战，三连一线获胜</div>
+          </div>
+          <div class="game-card" data-game="rps" data-mode="multi">
+            <div class="game-icon">✂️</div>
+            <div class="game-name">石头剪刀布</div>
+            <div class="game-desc">两人猜拳，多轮对战</div>
           </div>
         </div>
         <div style="margin-top: 10px; text-align: right;">
@@ -211,6 +212,35 @@
     </div>
   </div>
 
+  <!-- 石头剪刀布弹窗 -->
+  <div class="modal hidden" id="rpsModal">
+    <div class="modal-content rps-container">
+      <div class="modal-header">
+        <h2 id="rpsTitle">✂️ 石头剪刀布</h2>
+        <button class="modal-close" id="rpsClose">✕</button>
+      </div>
+      <div class="rps-info">
+        <span id="rpsStatus">等待...</span>
+        <span id="rpsSpectators">观战: 0人</span>
+      </div>
+      <div class="rps-round" id="rpsRound"></div>
+      <div class="rps-display">
+        <div class="rps-my-choice"></div>
+        <div class="rps-vs">VS</div>
+        <div class="rps-opponent-choice"></div>
+      </div>
+      <div class="rps-choices" id="rpsChoices"></div>
+      <div class="rps-result hidden" id="rpsResult"></div>
+      <div class="rps-chat">
+        <div class="rps-chat-messages" id="rpsChatMessages"></div>
+        <div class="rps-chat-input">
+          <input type="text" id="rpsChatInput" placeholder="聊天...">
+          <button id="rpsChatSend">发送</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- 邀请弹窗 -->
   <div class="modal hidden" id="inviteModal">
     <div class="modal-content invite-popup">
@@ -230,5 +260,6 @@
   <script src="game.js"></script>
   <script src="gomoku.js"></script>
   <script src="tictactoe.js"></script>
+  <script src="rps.js"></script>
 </body>
 </html>
