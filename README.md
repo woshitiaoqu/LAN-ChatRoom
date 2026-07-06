@@ -7,6 +7,7 @@
 - 实时消息传输（WebSocket）
 - 多用户支持，自定义用户名
 - 图片发送（base64，限制 5MB）
+- **屏幕共享**（多人同时共享，自由选择观看，自定义全屏大小，基于 WebRTC）
 - 五子棋对战（创建房间、邀请对战、观战、弹幕聊天）
 - 管理控制台（踢出用户、禁言、IP/MAC 黑名单、屏蔽词）
 - 小窗模式（Ctrl+Shift+H）
@@ -60,9 +61,9 @@ http://localhost:8082
 
 ```
 LAN-ChatRoom/
-├── server.js           # 后端服务器（Express + WebSocket + 五子棋模块）
+├── server.js           # 后端服务器（Express + WebSocket + 屏幕共享信令 + 五子棋模块）
 ├── adminConsole.js     # 管理控制台
-├── script.js           # 前端逻辑（聊天 + 五子棋 + 小窗）
+├── script.js           # 前端逻辑（聊天 + 屏幕共享 WebRTC + 五子棋 + 小窗）
 ├── index.html          # 页面结构
 ├── style.css           # 样式表
 ├── package.json        # 项目配置
@@ -74,3 +75,4 @@ LAN-ChatRoom/
 - 确保所有用户在同一个局域网内
 - 默认端口 8082，可在 `server.js` 中修改
 - 数据库文件 `chat.db` 包含聊天记录，已在 `.gitignore` 中排除
+- **屏幕共享** 需要浏览器支持 `getDisplayMedia`，通过局域网 IP 访问时可能因非安全上下文被限制，可将地址加入浏览器不安全来源白名单（`edge://flags/#unsafely-treat-insecure-origin-as-secure`）
