@@ -170,10 +170,9 @@ function connectWebSocket() {
       window.location.href = 'index.html';
       return;
     }
-    loadingTip.textContent = '连接已断开，正在重连...';
-    loadingTip.classList.remove('hidden');
-    gameLobby.classList.add('hidden');
-    setTimeout(connectWebSocket, 2000);
+    localStorage.removeItem('chatUsername');
+    localStorage.removeItem('chatClientId');
+    window.location.href = 'index.html';
   };
 
   socket.onerror = () => {
