@@ -111,7 +111,7 @@ function connectWebSocket() {
       renderPlayerList(data.players);
     } else if (data.type === 'game_created') {
       currentGameId = data.game.id;
-      openGomoku(data.game);
+      // 不打开棋盘，留在大厅等待对手加入
     } else if (data.type === 'game_start') {
       currentGameId = data.game.id;
       openGomoku(data.game);
@@ -123,6 +123,7 @@ function connectWebSocket() {
       document.getElementById('gomokuSpectators').textContent = `观战: ${data.count}人`;
     } else if (data.type === 'game_error') {
       alert(data.error);
+      gameLobby.classList.remove('hidden');
     } else if (data.type === 'game_left') {
       closeGomoku();
     } else if (data.type === 'game_invite_received') {
@@ -410,27 +411,21 @@ function renderPlayerList(players) {
 function createGame(gameType) {
   if (!gameType) { alert('请先选择游戏'); return; }
   socket.send(JSON.stringify({ type: 'game_create', gameType }));
-  gameLobby.classList.add('hidden');
+  // 留在大厅等待对手加入
 }
 
 // 加入游戏
 function joinGame(gameId) {
   socket.send(JSON.stringify({ type: 'game_join', gameId }));
-  gameLobby.classList.add('hidden');
+  // 大厅由 game_start 或 game_error 控制显隐
 }
 
 // 观战
 function spectateGame(gameId) {
   socket.send(JSON.stringify({ type: 'game_spectate', gameId }));
-  gameLobby.classList.add('hidden');
+  // 大厅由 game_start 或 game_error 控制显隐
 }
 
-// 邀请玩家（创建游戏并等待）
-function invitePlayer(username) {
-  if (!selectedGameType) { alert('请先选择游戏类型'); return; }
-  socket.send(JSON.stringify({ type: 'game_create', gameType: selectedGameType }));
-  gameLobby.classList.add('hidden');
-}
 
 // 打开五子棋界面
 function openGomoku(game) {

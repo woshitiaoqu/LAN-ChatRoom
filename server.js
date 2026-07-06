@@ -260,6 +260,7 @@ const gameManager = {
   spectateGame(gameId, playerId, playerName) {
     const game = this.games.get(gameId);
     if (!game) return { success: false, error: '游戏不存在' };
+    if (game.status !== 'playing') return { success: false, error: '游戏尚未开始' };
     if (game.players.find(p => p.id === playerId)) return { success: false, error: '你是玩家' };
     game.spectators.set(playerId, playerName);
     this.playerGames.set(playerId, gameId);
@@ -286,14 +287,18 @@ const gameManager = {
     if (winner) {
       game.status = 'finished';
       game.winner = playerId;
+      // 通知房间内所有人游戏结束
+      this.broadcastToGame(gameId, { type: 'game_over', gameId, winnerName: player.name });
       // 3秒后清理已结束的游戏
-      const gameId = game.id;
+      const finishedGameId = game.id;
       setTimeout(() => {
-        this.games.delete(gameId);
+        this.games.delete(finishedGameId);
         for (const [pid, gid] of this.playerGames) {
-          if (gid === gameId) this.playerGames.delete(pid);
+          if (gid === finishedGameId) this.playerGames.delete(pid);
         }
+        this.broadcastGameListToAll();
       }, 3000);
+      this.broadcastGameListToAll();
     }
 
     return { success: true, game, move: { row, col, color: player.color }, winnerName: winner ? player.name : null };
@@ -924,10 +929,12 @@ wss.on('connection', async (ws, req) => {
   });
 
   ws.on('close', () => {
+    gameManager.leaveGame(clientId);
     activeConnections.delete(ws);
     admin.onlineUsers.delete(clientId);
-    // 广播在线用户列表更新
+    // 广播在线用户列表和游戏列表更新
     gameManager.broadcastPlayerListToAll();
+    gameManager.broadcastGameListToAll();
   });
 
   ws.on('error', (error) => {
