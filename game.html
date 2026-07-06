@@ -21,7 +21,7 @@
 
       <!-- 单机游戏 -->
       <div class="game-section">
-        <h3>🕹️ 单机游戏 <span style="font-weight:normal;font-size:12px;color:#999;">（共19款）</span></h3>
+        <h3>🕹️ 单机游戏 <span style="font-weight:normal;font-size:12px;color:#999;">（共18款）</span></h3>
         <div class="game-list">
           <div class="game-card" data-game="2048" data-mode="single">
             <div class="game-icon">🎲</div>
@@ -113,11 +113,6 @@
             <div class="game-name">石头剪刀布</div>
             <div class="game-desc">和AI猜拳对决</div>
           </div>
-          <div class="game-card" data-game="tic-tac-toe" data-mode="single">
-            <div class="game-icon">⭕</div>
-            <div class="game-name">井字棋</div>
-            <div class="game-desc">和AI三连棋对战</div>
-          </div>
         </div>
       </div>
 
@@ -129,6 +124,11 @@
             <div class="game-icon">⚫</div>
             <div class="game-name">五子棋</div>
             <div class="game-desc">经典黑白棋，五子连珠获胜</div>
+          </div>
+          <div class="game-card" data-game="tictactoe" data-mode="multi">
+            <div class="game-icon">⭕</div>
+            <div class="game-name">井字棋</div>
+            <div class="game-desc">两人对战，三连一线获胜</div>
           </div>
         </div>
         <div style="margin-top: 10px; text-align: right;">
@@ -160,6 +160,28 @@
       </div>
       <div class="game-iframe-wrap">
         <iframe id="iframeGameFrame" frameborder="0" allowfullscreen></iframe>
+      </div>
+    </div>
+  </div>
+
+  <!-- 井字棋弹窗 -->
+  <div class="modal hidden" id="tttModal">
+    <div class="modal-content ttt-container">
+      <div class="modal-header">
+        <h2 id="tttTitle">⭕ 井字棋</h2>
+        <button class="modal-close" id="tttClose">✕</button>
+      </div>
+      <div class="ttt-info">
+        <span id="tttStatus"></span>
+        <span id="tttSpectators">观战: 0人</span>
+      </div>
+      <div class="ttt-board" id="tttBoard"></div>
+      <div class="ttt-chat">
+        <div class="ttt-chat-messages" id="tttChatMessages"></div>
+        <div class="ttt-chat-input">
+          <input type="text" id="tttChatInput" placeholder="聊天...">
+          <button id="tttChatSend">发送</button>
+        </div>
       </div>
     </div>
   </div>
@@ -207,5 +229,6 @@
 
   <script src="game.js"></script>
   <script src="gomoku.js"></script>
+  <script src="tictactoe.js"></script>
 </body>
 </html>

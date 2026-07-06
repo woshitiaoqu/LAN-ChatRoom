@@ -238,6 +238,9 @@ const gameManager = {
     if (type === 'gomoku') {
       game.board = Array(15).fill(null).map(() => Array(15).fill(null));
       game.currentTurn = 'black';
+    } else if (type === 'tictactoe') {
+      game.board = Array(3).fill(null).map(() => Array(3).fill(null));
+      game.currentTurn = 'x';
     }
 
     this.games.set(gameId, game);
@@ -270,29 +273,38 @@ const gameManager = {
     return { success: true, game };
   },
 
-  // 下棋（五子棋）
+  // 下棋
   makeMove(gameId, playerId, row, col) {
     const game = this.games.get(gameId);
-    if (!game || game.type !== 'gomoku') return { success: false, error: '游戏无效' };
+    if (!game) return { success: false, error: '游戏无效' };
     if (game.status !== 'playing') return { success: false, error: '游戏未开始' };
 
     const player = game.players.find(p => p.id === playerId);
     if (!player) return { success: false, error: '你不是玩家' };
     if (player.color !== game.currentTurn) return { success: false, error: '还没轮到你' };
-    if (row < 0 || row >= 15 || col < 0 || col >= 15) return { success: false, error: '位置无效' };
+
+    let size, colorA, colorB, winner, isDraw;
+    if (game.type === 'gomoku') { size = 15; colorA = 'black'; colorB = 'white'; }
+    else if (game.type === 'tictactoe') { size = 3; colorA = 'x'; colorB = 'o'; }
+    else return { success: false, error: '未知游戏类型' };
+
+    if (row < 0 || row >= size || col < 0 || col >= size) return { success: false, error: '位置无效' };
     if (game.board[row][col] !== null) return { success: false, error: '此位置已有棋子' };
 
     game.board[row][col] = player.color;
-    game.currentTurn = game.currentTurn === 'black' ? 'white' : 'black';
+    game.currentTurn = game.currentTurn === colorA ? colorB : colorA;
 
     // 检查胜负
-    const winner = this.checkGomokuWinner(game.board, row, col, player.color);
+    if (game.type === 'gomoku') {
+      winner = this.checkGomokuWinner(game.board, row, col, player.color);
+    } else if (game.type === 'tictactoe') {
+      winner = this.checkTicTacToeWinner(game.board, player.color);
+    }
+
     if (winner) {
       game.status = 'finished';
       game.winner = playerId;
-      // 通知房间内所有人游戏结束
       this.broadcastToGame(gameId, { type: 'game_over', gameId, winnerName: player.name });
-      // 3秒后清理已结束的游戏
       const finishedGameId = game.id;
       setTimeout(() => {
         this.games.delete(finishedGameId);
@@ -302,9 +314,25 @@ const gameManager = {
         this.broadcastGameListToAll();
       }, 3000);
       this.broadcastGameListToAll();
+    } else {
+      // 平局检查（棋盘满了无人胜）
+      const isDraw = game.board.every(r => r.every(c => c !== null));
+      if (isDraw) {
+        game.status = 'finished';
+        this.broadcastToGame(gameId, { type: 'game_over', gameId, winnerName: '平局' });
+        const finishedGameId = game.id;
+        setTimeout(() => {
+          this.games.delete(finishedGameId);
+          for (const [pid, gid] of this.playerGames) {
+            if (gid === finishedGameId) this.playerGames.delete(pid);
+          }
+          this.broadcastGameListToAll();
+        }, 3000);
+        this.broadcastGameListToAll();
+      }
     }
 
-    return { success: true, game, move: { row, col, color: player.color }, winnerName: winner ? player.name : null };
+    return { success: true, game, move: { row, col, color: player.color }, winnerName: winner ? player.name : (isDraw ? '平局' : null) };
   },
 
   // 五子棋胜负检测
@@ -323,6 +351,19 @@ const gameManager = {
         else break;
       }
       if (count >= 5) return color;
+    }
+    return null;
+  },
+
+  // 井字棋胜负检测
+  checkTicTacToeWinner(board, color) {
+    const lines = [
+      [[0,0],[0,1],[0,2]], [[1,0],[1,1],[1,2]], [[2,0],[2,1],[2,2]],
+      [[0,0],[1,0],[2,0]], [[0,1],[1,1],[2,1]], [[0,2],[1,2],[2,2]],
+      [[0,0],[1,1],[2,2]], [[0,2],[1,1],[2,0]]
+    ];
+    for (const line of lines) {
+      if (line.every(([r, c]) => board[r][c] === color)) return color;
     }
     return null;
   },
