@@ -1,6 +1,6 @@
 # 局域网聊天室
 
-基于 WebSocket 的局域网即时聊天应用，支持多用户实时聊天、五子棋对战、管理控制台。
+基于 WebSocket 的局域网即时聊天应用，支持多用户实时聊天、游戏大厅、屏幕共享、管理控制台。
 
 ## 功能特性
 
@@ -8,7 +8,12 @@
 - 多用户支持，自定义用户名
 - 图片发送（base64，限制 5MB）
 - **屏幕共享**（多人同时共享，自由选择观看，自定义全屏大小，基于 WebRTC）
-- 五子棋对战（创建房间、邀请对战、观战、弹幕聊天）
+- **🎮 游戏大厅**（`game.html`）
+  - 🕹️ **单机游戏**（17 款）：俄罗斯方块、2048、贪吃蛇、Flappy Bird、飞机大战、迷宫等
+  - 🌐 **联机游戏（局域网）**：
+    - ⚫ 五子棋（创建房间、邀请对战、观战、弹幕聊天）
+    - ⭕ 井字棋（两人对战，三连一线获胜）
+    - ✂️ 石头剪刀布（多轮猜拳对战）
 - 管理控制台（踢出用户、禁言、IP/MAC 黑名单、屏蔽词）
 - 小窗模式（Ctrl+Shift+H）
 - SQLite 消息持久化
@@ -17,7 +22,8 @@
 
 - Node.js (Express + WebSocket)
 - SQLite（消息存储，运行时自动创建 `chat.db`）
-- 原生 HTML5 + CSS3 + JavaScript (ES6)
+- 前端：原生 HTML5 + CSS3 + JavaScript (ES6)
+- 单机游戏：Vite + React + TypeScript + Tailwind CSS（iframe 嵌入）
 
 ## 环境要求
 
@@ -39,6 +45,29 @@ http://localhost:8082
 
 局域网内其他用户通过 `http://<你的IP>:8082` 访问。
 
+## 项目结构
+
+```
+LAN-ChatRoom/
+├── server.js           # 后端服务器（Express + WebSocket + 游戏管理 + 屏幕共享信令）
+├── adminConsole.js     # 管理控制台
+├── script.js           # 前端逻辑（聊天 + 屏幕共享 WebRTC + 小窗）
+├── index.html          # 聊天室页面
+├── game.html           # 游戏大厅页面
+├── game.js             # 游戏大厅核心（WebSocket + 模块系统 + 大厅渲染）
+├── gomoku.js           # 五子棋联机模块
+├── tictactoe.js        # 井字棋联机模块
+├── rps.js              # 石头剪刀布联机模块
+├── games/              # 单机游戏（iframe 嵌入）
+│   ├── tetris/         # 俄罗斯方块
+│   ├── 2048/           # 2048
+│   ├── snake/          # 贪吃蛇
+│   └── ...             # 共 17 款
+├── style.css           # 样式表
+├── package.json        # 项目配置
+└── chat.db             # SQLite 数据库（运行时自动创建）
+```
+
 ## 管理控制台
 
 运行 `node adminConsole.js` 后，终端会显示管理菜单：
@@ -56,19 +85,6 @@ http://localhost:8082
 | 9 | 提示用户 |
 | 10 | 屏蔽词管理 |
 | 11 | IP/MAC 黑名单管理 |
-
-## 项目结构
-
-```
-LAN-ChatRoom/
-├── server.js           # 后端服务器（Express + WebSocket + 屏幕共享信令 + 五子棋模块）
-├── adminConsole.js     # 管理控制台
-├── script.js           # 前端逻辑（聊天 + 屏幕共享 WebRTC + 五子棋 + 小窗）
-├── index.html          # 页面结构
-├── style.css           # 样式表
-├── package.json        # 项目配置
-└── chat.db             # SQLite 数据库（运行时自动创建）
-```
 
 ## 注意事项
 
