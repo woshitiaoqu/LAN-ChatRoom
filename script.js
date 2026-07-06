@@ -497,9 +497,10 @@ function handleGomokuMove(data) {
 }
 
 // 更新回合/胜负信息
+let gameEndTimer = null;
 function updateTurnInfo(currentTurn, winnerName) {
   const el = document.getElementById('gomokuTurn');
-  const specEl = document.getElementById('gomokuSpectators');
+  if (gameEndTimer) { clearInterval(gameEndTimer); gameEndTimer = null; }
   if (winnerName) {
     if (myGameColor) {
       const isMe = (winnerName === currentUser);
@@ -508,12 +509,27 @@ function updateTurnInfo(currentTurn, winnerName) {
       el.textContent = `🎉 ${winnerName} 获胜！`;
     }
     el.style.color = '#e91e63';
+    // 30秒倒计时自动退出
+    let countdown = 30;
+    el.textContent += ` (${countdown}s后退出)`;
+    gameEndTimer = setInterval(() => {
+      countdown--;
+      if (countdown <= 0) {
+        clearInterval(gameEndTimer);
+        gameEndTimer = null;
+        closeGomoku();
+      } else {
+        const base = winnerName
+          ? (myGameColor ? ((winnerName === currentUser) ? '🎉 你赢了！' : '😢 你输了') : `🎉 ${winnerName} 获胜！`)
+          : '';
+        el.textContent = base + ` (${countdown}s后退出)`;
+      }
+    }, 1000);
   } else if (myGameColor) {
     const isMyTurn = currentTurn === myGameColor;
     el.textContent = isMyTurn ? '轮到你了' : '等待对手...';
     el.style.color = isMyTurn ? '#4caf50' : '#999';
   } else {
-    // 观战者视角
     el.textContent = currentTurn === 'black' ? '⚫ 黑棋落子中...' : '⚪ 白棋落子中...';
     el.style.color = '#666';
   }
@@ -547,6 +563,7 @@ function addGomokuChat(data) {
 
 // 关闭五子棋
 function closeGomoku() {
+  if (gameEndTimer) { clearInterval(gameEndTimer); gameEndTimer = null; }
   gomokuModal.classList.add('hidden');
   document.body.classList.remove('spectator');
   currentGameId = null;
