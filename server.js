@@ -498,13 +498,16 @@ const gameManager = {
     // 如果是玩家，通知对手
     const playerIdx = game.players.findIndex(p => p.id === playerId);
     if (playerIdx !== -1) {
+      const wasPlaying = game.status === 'playing';
       game.players.splice(playerIdx, 1);
-      if (game.status === 'playing') {
+      if (wasPlaying) {
         game.status = 'finished';
         game.winner = game.players[0]?.id || null;
+        const winnerPlayer = game.winner ? game.players.find(p => p.id === game.winner) : null;
+        this.broadcastToGame(gameId, { type: 'game_over', gameId, winnerName: winnerPlayer ? winnerPlayer.name : '平局' });
+      } else {
+        this.broadcastToGame(gameId, { type: 'game_left', gameId, playerId });
       }
-      // 通知房间内所有人
-      this.broadcastToGame(gameId, { type: 'game_left', gameId, playerId });
       // 如果房间空了，删除
       if (game.players.length === 0 && game.spectators.size === 0) {
         this.games.delete(gameId);

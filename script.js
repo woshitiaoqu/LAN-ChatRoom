@@ -389,20 +389,20 @@ function renderActiveGames(games) {
     container.innerHTML = '<p class="empty-tip">暂无进行中的游戏</p>';
     return;
   }
+  const gameNames = { gomoku: '⚫ 五子棋', snake: '🐍 贪吃蛇' };
   container.innerHTML = others.map(g => {
     const statusText = g.status === 'waiting' ? '⏳ 等待加入' : '🎮 进行中';
     const specText = g.spectatorCount > 0 ? `👀 ${g.spectatorCount}人观战` : '';
     return `
     <div class="active-game-item">
       <div class="game-info">
-        <strong>${g.type === 'gomoku' ? '⚫ 五子棋' : g.type}</strong>
+        <strong>${gameNames[g.type] || g.type}</strong>
         ${g.players.join(' vs ')}
         <span class="game-status">${statusText}</span>
         ${specText ? `<span class="game-spec-count">${specText}</span>` : ''}
       </div>
       <div>
-        ${g.status === 'waiting' ? `<button class="game-btn-join" onclick="joinGame('${g.id}')">加入</button>` : ''}
-        <button class="game-btn-spectate" onclick="spectateGame('${g.id}')">观战</button>
+        ${g.status === 'waiting' ? `<button class="game-btn-join" onclick="joinGame('${g.id}')">加入</button>` : `<button class="game-btn-spectate" onclick="spectateGame('${g.id}')">观战</button>`}
       </div>
     </div>`;
   }).join('');
