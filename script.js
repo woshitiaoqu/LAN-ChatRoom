@@ -384,11 +384,12 @@ document.getElementById('createGameBtn').addEventListener('click', () => {
 // 渲染进行中的游戏列表
 function renderActiveGames(games) {
   const container = document.getElementById('activeGames');
-  if (!games || games.length === 0) {
+  const others = (games || []).filter(g => !g.players.includes(currentUser));
+  if (others.length === 0) {
     container.innerHTML = '<p class="empty-tip">暂无进行中的游戏</p>';
     return;
   }
-  container.innerHTML = games.map(g => {
+  container.innerHTML = others.map(g => {
     const statusText = g.status === 'waiting' ? '⏳ 等待加入' : '🎮 进行中';
     const specText = g.spectatorCount > 0 ? `👀 ${g.spectatorCount}人观战` : '';
     return `
