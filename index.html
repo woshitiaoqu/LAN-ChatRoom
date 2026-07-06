@@ -42,11 +42,6 @@
             <div class="game-name">五子棋</div>
             <div class="game-desc">经典黑白棋，五子连珠获胜</div>
           </div>
-          <div class="game-card" data-game="snake">
-            <div class="game-icon">🐍</div>
-            <div class="game-name">贪吃蛇</div>
-            <div class="game-desc">双人对战，吃食物长大，撞墙或撞对方死</div>
-          </div>
         </div>
         <div style="margin-top: 10px; text-align: right;">
           <button class="game-btn-create" id="createGameBtn">创建房间</button>
@@ -87,31 +82,6 @@
         <div class="gomoku-chat-input">
           <input type="text" id="gomokuChatInput" placeholder="发弹幕聊天...">
           <button id="gomokuChatSend">发送</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- 贪吃蛇弹窗 -->
-  <div class="modal hidden" id="snakeModal">
-    <div class="modal-content snake-container">
-      <div class="modal-header">
-        <h2 id="snakeTitle">🐍 贪吃蛇</h2>
-        <button class="modal-close" id="snakeClose">✕</button>
-      </div>
-      <div class="snake-info">
-        <span id="snakeScore"></span>
-        <span id="snakeSpectators">观战: 0人</span>
-      </div>
-      <div class="snake-board-wrap">
-        <canvas id="snakeCanvas"></canvas>
-        <div class="danmaku-layer" id="snakeDanmakuLayer"></div>
-      </div>
-      <div class="gomoku-chat">
-        <div class="gomoku-chat-messages" id="snakeChatMessages"></div>
-        <div class="gomoku-chat-input">
-          <input type="text" id="snakeChatInput" placeholder="发弹幕聊天...">
-          <button id="snakeChatSend">发送</button>
         </div>
       </div>
     </div>

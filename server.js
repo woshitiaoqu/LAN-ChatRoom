@@ -237,156 +237,9 @@ const gameManager = {
       game.currentTurn = 'black';
     }
 
-    if (type === 'snake') {
-      game.mapSize = 40;
-      game.food = null;
-      game.players = [{ id: creatorId, name: creatorName }];
-      game.snakes = {};
-      game.gameLoop = null;
-      this.initSnake(game, creatorId);
-    }
-
     this.games.set(gameId, game);
     this.playerGames.set(creatorId, gameId);
     return game;
-  },
-
-  // 初始化蛇
-  initSnake(game, playerId) {
-    const idx = Object.keys(game.snakes).length;
-    const startPositions = [
-      { x: 2, y: 2, dir: 'right' },
-      { x: game.mapSize - 3, y: game.mapSize - 3, dir: 'left' }
-    ];
-    const sp = startPositions[idx] || startPositions[0];
-    const body = [];
-    for (let i = 0; i < 3; i++) {
-      if (sp.dir === 'right') body.push({ x: sp.x - i, y: sp.y });
-      else if (sp.dir === 'left') body.push({ x: sp.x + i, y: sp.y });
-      else if (sp.dir === 'down') body.push({ x: sp.x, y: sp.y - i });
-      else body.push({ x: sp.x, y: sp.y + i });
-    }
-    game.snakes[playerId] = { body, dir: sp.dir, alive: true };
-  },
-
-  // 贪吃蛇方向控制
-  snakeMove(gameId, playerId, dir) {
-    const game = this.games.get(gameId);
-    if (!game || game.type !== 'snake') return { success: false, error: '游戏无效' };
-    if (game.status !== 'playing') return { success: false, error: '游戏未开始' };
-    const snake = game.snakes[playerId];
-    if (!snake || !snake.alive) return { success: false, error: '你已死亡' };
-    // 禁止180度掉头
-    const opposites = { left: 'right', right: 'left', up: 'down', down: 'up' };
-    if (opposites[dir] === snake.dir) return { success: false, error: '不能掉头' };
-    snake.dir = dir;
-    return { success: true };
-  },
-
-  // 生成食物
-  spawnFood(game) {
-    const size = game.mapSize;
-    const occupied = new Set();
-    for (const pid in game.snakes) {
-      for (const seg of game.snakes[pid].body) {
-        occupied.add(seg.x + ',' + seg.y);
-      }
-    }
-    let x, y;
-    do {
-      x = Math.floor(Math.random() * size);
-      y = Math.floor(Math.random() * size);
-    } while (occupied.has(x + ',' + y));
-    game.food = { x, y };
-  },
-
-  // 贪吃蛇游戏循环
-  startSnakeLoop(game) {
-    if (game.gameLoop) clearInterval(game.gameLoop);
-    game.gameLoop = setInterval(() => {
-      if (game.status !== 'playing') {
-        clearInterval(game.gameLoop);
-        game.gameLoop = null;
-        return;
-      }
-      this.tickSnake(game);
-    }, 150);
-  },
-
-  // 贪吃蛇单帧
-  tickSnake(game) {
-    const size = game.mapSize;
-    const dirMap = { left: [-1,0], right: [1,0], up: [0,-1], down: [0,1] };
-    const alivePlayers = [];
-
-    for (const pid in game.snakes) {
-      const snake = game.snakes[pid];
-      if (!snake.alive) continue;
-      alivePlayers.push(pid);
-      const head = snake.body[0];
-      const [dx, dy] = dirMap[snake.dir];
-      const newHead = { x: head.x + dx, y: head.y + dy };
-
-      // 撞墙
-      if (newHead.x < 0 || newHead.x >= size || newHead.y < 0 || newHead.y >= size) {
-        snake.alive = false;
-        continue;
-      }
-      // 撞自己
-      if (snake.body.some(s => s.x === newHead.x && s.y === newHead.y)) {
-        snake.alive = false;
-        continue;
-      }
-      // 撞其他玩家
-      let hitOther = false;
-      for (const pid2 in game.snakes) {
-        if (pid2 === pid) continue;
-        if (game.snakes[pid2].body.some(s => s.x === newHead.x && s.y === newHead.y)) {
-          hitOther = true;
-          break;
-        }
-      }
-      if (hitOther) { snake.alive = false; continue; }
-
-      snake.body.unshift(newHead);
-      // 吃到食物
-      if (game.food && newHead.x === game.food.x && newHead.y === game.food.y) {
-        this.spawnFood(game);
-      } else {
-        snake.body.pop();
-      }
-    }
-
-    // 广播状态
-    this.broadcastToGame(game.id, {
-      type: 'snake_state',
-      gameId: game.id,
-      snakes: game.snakes,
-      food: game.food,
-      mapSize: size
-    });
-
-    // 检查胜负
-    const stillAlive = Object.entries(game.snakes).filter(([, s]) => s.alive);
-    if (stillAlive.length <= 1) {
-      game.status = 'finished';
-      const winnerId = stillAlive.length === 1 ? stillAlive[0][0] : null;
-      const winnerPlayer = winnerId ? game.players.find(p => p.id === winnerId) : null;
-      const winnerName = winnerPlayer ? winnerPlayer.name : '平局';
-      game.winner = winnerId;
-      this.broadcastToGame(game.id, { type: 'game_over', gameId: game.id, winnerName });
-      clearInterval(game.gameLoop);
-      game.gameLoop = null;
-      const finishedGameId = game.id;
-      setTimeout(() => {
-        this.games.delete(finishedGameId);
-        for (const [pid, gid] of this.playerGames) {
-          if (gid === finishedGameId) this.playerGames.delete(pid);
-        }
-        this.broadcastGameListToAll();
-      }, 3000);
-      this.broadcastGameListToAll();
-    }
   },
 
   // 加入游戏
@@ -398,17 +251,8 @@ const gameManager = {
     if (game.players[0].id === playerId) return { success: false, error: '不能跟自己下' };
 
     game.players.push({ id: playerId, name: playerName, color: 'white' });
+    game.status = 'playing';
     this.playerGames.set(playerId, gameId);
-
-    if (game.type === 'snake') {
-      this.initSnake(game, playerId);
-      game.status = 'playing';
-      this.spawnFood(game);
-      this.startSnakeLoop(game);
-    } else {
-      game.status = 'playing';
-    }
-
     return { success: true, game };
   },
 
@@ -488,12 +332,6 @@ const gameManager = {
     if (!game) return;
 
     this.playerGames.delete(playerId);
-
-    // 停止游戏循环
-    if (game.type === 'snake' && game.gameLoop) {
-      clearInterval(game.gameLoop);
-      game.gameLoop = null;
-    }
 
     // 如果是玩家，通知对手
     const playerIdx = game.players.findIndex(p => p.id === playerId);
@@ -914,11 +752,6 @@ wss.on('connection', async (ws, req) => {
             winnerName = w ? w.name : null;
           }
           const gameData = { id: result.game.id, type: result.game.type, players: result.game.players, board: result.game.board, currentTurn: result.game.currentTurn, winner: winnerName };
-          if (result.game.type === 'snake') {
-            gameData.snakes = result.game.snakes;
-            gameData.food = result.game.food;
-            gameData.mapSize = result.game.mapSize;
-          }
           gameManager.broadcastToGame(parsedMessage.gameId, {
             type: 'game_start',
             game: gameData
@@ -939,11 +772,6 @@ wss.on('connection', async (ws, req) => {
             winnerName = w ? w.name : null;
           }
           const gameData = { id: result.game.id, type: result.game.type, players: result.game.players, board: result.game.board, currentTurn: result.game.currentTurn, winner: winnerName };
-          if (result.game.type === 'snake') {
-            gameData.snakes = result.game.snakes;
-            gameData.food = result.game.food;
-            gameData.mapSize = result.game.mapSize;
-          }
           ws.send(JSON.stringify({ type: 'game_start', game: gameData }));
           gameManager.broadcastToGame(parsedMessage.gameId, {
             type: 'game_spectator_count',
@@ -968,14 +796,6 @@ wss.on('connection', async (ws, req) => {
             status: result.game.status
           });
         } else {
-          ws.send(JSON.stringify({ type: 'game_error', error: result.error }));
-        }
-        return;
-      }
-
-      if (parsedMessage.type === 'snake_move') {
-        const result = gameManager.snakeMove(parsedMessage.gameId, clientId, parsedMessage.dir);
-        if (!result.success) {
           ws.send(JSON.stringify({ type: 'game_error', error: result.error }));
         }
         return;

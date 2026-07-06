@@ -114,33 +114,21 @@ function connectWebSocket() {
       // 不打开棋盘，留在大厅等待对手加入
     } else if (data.type === 'game_start') {
       currentGameId = data.game.id;
-      if (data.game.type === 'snake') {
-        openSnake(data.game);
-      } else {
-        openGomoku(data.game);
-      }
+      openGomoku(data.game);
     } else if (data.type === 'game_moved') {
       handleGomokuMove(data);
     } else if (data.type === 'game_chat') {
-      if (snakeGameActive) { addSnakeChat(data); } else { addGomokuChat(data); }
-    } else if (data.type === 'snake_state') {
-      handleSnakeState(data);
+      addGomokuChat(data);
     } else if (data.type === 'game_spectator_count') {
-      if (snakeGameActive) {
-        document.getElementById('snakeSpectators').textContent = `观战: ${data.count}人`;
-      } else {
-        document.getElementById('gomokuSpectators').textContent = `观战: ${data.count}人`;
-      }
+      document.getElementById('gomokuSpectators').textContent = `观战: ${data.count}人`;
     } else if (data.type === 'game_over') {
       alert(data.winnerName === '平局' ? '平局！' : `🎉 ${data.winnerName} 获胜！`);
-      setTimeout(() => {
-        if (snakeGameActive) { closeSnake(); } else { closeGomoku(); }
-      }, 2000);
+      setTimeout(() => { closeGomoku(); }, 2000);
     } else if (data.type === 'game_error') {
       alert(data.error);
       gameLobby.classList.remove('hidden');
     } else if (data.type === 'game_left') {
-      if (snakeGameActive) { closeSnake(); } else { closeGomoku(); }
+      closeGomoku();
     } else if (data.type === 'game_invite_received') {
       showInviteModal(data);
     } else if (data.type === 'game_invite_sent') {
@@ -389,7 +377,7 @@ function renderActiveGames(games) {
     container.innerHTML = '<p class="empty-tip">暂无进行中的游戏</p>';
     return;
   }
-  const gameNames = { gomoku: '⚫ 五子棋', snake: '🐍 贪吃蛇' };
+  const gameNames = { gomoku: '⚫ 五子棋' };
   container.innerHTML = others.map(g => {
     const statusText = g.status === 'waiting' ? '⏳ 等待加入' : '🎮 进行中';
     const specText = g.spectatorCount > 0 ? `👀 ${g.spectatorCount}人观战` : '';
@@ -629,8 +617,8 @@ function invitePlayer(username) {
 // 收到邀请
 function showInviteModal(data) {
   pendingInvite = data;
-  const gameNames = { gomoku: '五子棋', snake: '贪吃蛇' };
-  const gameIcons = { gomoku: '⚫', snake: '🐍' };
+  const gameNames = { gomoku: '五子棋' };
+  const gameIcons = { gomoku: '⚫' };
   document.getElementById('inviteText').textContent = (gameNames[data.gameType] || data.gameType) + '对战！';
   document.getElementById('inviteFrom').textContent = data.fromUsername + ' 邀请你';
   document.querySelector('.invite-icon').textContent = gameIcons[data.gameType] || '🎮';
@@ -660,151 +648,3 @@ inviteDecline.addEventListener('click', () => {
     pendingInvite = null;
   }
 });
-
-// ===== 贪吃蛇 =====
-let snakeGameActive = false;
-let snakeMyId = null;
-let snakeState = null;
-const snakeModal = document.getElementById('snakeModal');
-const snakeCanvas = document.getElementById('snakeCanvas');
-const snakeCtx = snakeCanvas.getContext('2d');
-
-document.getElementById('snakeClose').addEventListener('click', () => {
-  if (snakeGameActive) {
-    socket.send(JSON.stringify({ type: 'game_leave', gameId: currentGameId }));
-  }
-  closeSnake();
-});
-
-function openSnake(game) {
-  snakeGameActive = true;
-  snakeMyId = game.players.find(p => p.name === currentUser)?.id || null;
-  snakeState = { snakes: game.snakes, food: game.food, mapSize: game.mapSize || 40 };
-  snakeModal.classList.remove('hidden');
-  gameLobby.classList.add('hidden');
-  const mySnake = game.snakes[snakeMyId];
-  const isSpec = !mySnake;
-  document.body.classList.toggle('spectator', isSpec);
-  document.getElementById('snakeTitle').textContent = isSpec ? '🐍 贪吃蛇 (观战中)' : '🐍 贪吃蛇';
-  const size = game.mapSize || 40;
-  const cellSize = Math.min(Math.floor((Math.min(window.innerWidth - 40, 700)) / size), 16);
-  snakeCanvas.width = size * cellSize;
-  snakeCanvas.height = size * cellSize;
-  snakeCanvas._cellSize = cellSize;
-  renderSnake();
-}
-
-function handleSnakeState(data) {
-  if (!snakeGameActive) return;
-  snakeState = { snakes: data.snakes, food: data.food, mapSize: data.mapSize };
-  // 更新长度信息
-  const mySnake = snakeState.snakes[snakeMyId];
-  if (mySnake && mySnake.alive) {
-    document.getElementById('snakeScore').textContent = `长度: ${mySnake.body.length}`;
-  } else if (mySnake) {
-    document.getElementById('snakeScore').textContent = '你已阵亡';
-  }
-  renderSnake();
-}
-
-function renderSnake() {
-  if (!snakeState) return;
-  const cellSize = snakeCanvas._cellSize || 18;
-  const size = snakeState.mapSize;
-  const ctx = snakeCtx;
-  // 背景
-  ctx.fillStyle = '#1a1a2e';
-  ctx.fillRect(0, 0, snakeCanvas.width, snakeCanvas.height);
-  // 网格线
-  ctx.strokeStyle = '#16213e';
-  ctx.lineWidth = 0.5;
-  for (let i = 0; i <= size; i++) {
-    ctx.beginPath(); ctx.moveTo(i * cellSize, 0); ctx.lineTo(i * cellSize, size * cellSize); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(0, i * cellSize); ctx.lineTo(size * cellSize, i * cellSize); ctx.stroke();
-  }
-  // 食物
-  if (snakeState.food) {
-    ctx.fillStyle = '#ff4757';
-    ctx.beginPath();
-    ctx.arc(snakeState.food.x * cellSize + cellSize / 2, snakeState.food.y * cellSize + cellSize / 2, cellSize / 2 - 1, 0, Math.PI * 2);
-    ctx.fill();
-  }
-  // 蛇
-  const colors = { };
-  const pArr = Object.keys(snakeState.snakes);
-  for (let i = 0; i < pArr.length; i++) colors[pArr[i]] = i === 0 ? '#00d2d3' : '#feca57';
-  for (const pid in snakeState.snakes) {
-    const snake = snakeState.snakes[pid];
-    if (!snake.alive) continue;
-    const color = colors[pid] || '#0f0';
-    snake.body.forEach((seg, idx) => {
-      ctx.fillStyle = idx === 0 ? '#fff' : color;
-      ctx.shadowColor = color;
-      ctx.shadowBlur = idx === 0 ? 8 : 4;
-      ctx.fillRect(seg.x * cellSize + 1, seg.y * cellSize + 1, cellSize - 2, cellSize - 2);
-      ctx.shadowBlur = 0;
-    });
-  }
-}
-
-// 键盘控制
-document.addEventListener('keydown', (e) => {
-  if (!snakeGameActive || !currentGameId) return;
-  const keyMap = {
-    ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right',
-    w: 'up', s: 'down', a: 'left', d: 'right',
-    W: 'up', S: 'down', A: 'left', D: 'right'
-  };
-  const dir = keyMap[e.key];
-  if (dir) {
-    e.preventDefault();
-    socket.send(JSON.stringify({ type: 'snake_move', gameId: currentGameId, dir }));
-  }
-});
-
-// 贪吃蛇聊天
-const snakeChatInput = document.getElementById('snakeChatInput');
-const snakeChatSend = document.getElementById('snakeChatSend');
-snakeChatSend.addEventListener('click', sendSnakeChat);
-snakeChatInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendSnakeChat(); });
-
-function sendSnakeChat() {
-  const content = snakeChatInput.value.trim();
-  if (content && currentGameId) {
-    socket.send(JSON.stringify({ type: 'game_chat', gameId: currentGameId, content }));
-    snakeChatInput.value = '';
-  }
-}
-
-function addSnakeChat(data) {
-  const container = document.getElementById('snakeChatMessages');
-  const div = document.createElement('div');
-  div.className = 'chat-msg';
-  div.innerHTML = `<span class="chat-name">${data.username}</span><span class="chat-time">${data.time}</span> ${data.content}`;
-  container.appendChild(div);
-  container.scrollTop = container.scrollHeight;
-  // 弹幕
-  const layer = document.getElementById('snakeDanmakuLayer');
-  if (!layer) return;
-  const danmaku = document.createElement('div');
-  danmaku.className = 'danmaku-item';
-  danmaku.textContent = `${data.username}: ${data.content}`;
-  const colors = ['#fff', '#ff0', '#0ff', '#f90', '#f0f', '#0f0'];
-  danmaku.style.color = colors[Math.floor(Math.random() * colors.length)];
-  danmaku.style.top = (10 + Math.random() * 70) + '%';
-  const duration = 8 + Math.random() * 4;
-  danmaku.style.animationDuration = duration + 's';
-  layer.appendChild(danmaku);
-  danmaku.addEventListener('animationend', () => danmaku.remove());
-}
-
-function closeSnake() {
-  snakeGameActive = false;
-  snakeState = null;
-  snakeMyId = null;
-  snakeModal.classList.add('hidden');
-  document.body.classList.remove('spectator');
-  document.getElementById('snakeChatMessages').innerHTML = '';
-  gameLobby.classList.remove('hidden');
-  refreshLobby();
-}
