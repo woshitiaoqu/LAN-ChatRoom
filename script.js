@@ -570,6 +570,10 @@ function closeGomoku() {
   myGameColor = null;
   lastMoveCell = null;
   document.getElementById('gomokuChatMessages').innerHTML = '';
+  // 返回游戏大厅
+  gameLobby.classList.remove('hidden');
+  socket.send(JSON.stringify({ type: 'game_list' }));
+  socket.send(JSON.stringify({ type: 'game_players' }));
 }
 
 // ===== 邀请对战 =====
