@@ -661,6 +661,9 @@ let peerConnections = {}; // peerId → RTCPeerConnection
 const screenShareVideo = document.getElementById('screenShareVideo');
 const screenShareArea = document.getElementById('screenShareArea');
 const screenShareName = document.getElementById('screenShareName');
+const screenShareNotify = document.getElementById('screenShareNotify');
+const screenShareNotifyText = document.getElementById('screenShareNotifyText');
+let pendingShareSharer = null; // 正在共享的人
 
 document.getElementById('screenShareBtn').addEventListener('click', async () => {
   if (localScreenStream) { stopScreenShare(); return; }
@@ -681,23 +684,39 @@ function stopScreenShare() {
   socket.send(JSON.stringify({ type: 'screen_share_stop' }));
 }
 
-// 有人开始共享 → 观众创建 PeerConnection 并发 offer
+// 有人开始共享 → 显示通知条
 function handleScreenShareStartMsg(data) {
   if (data.fromId === clientId || localScreenStream) return;
+  pendingShareSharer = { id: data.fromId, name: data.fromName };
+  screenShareNotifyText.textContent = data.fromName + ' 正在共享屏幕';
+  screenShareNotify.classList.remove('hidden');
+}
+
+// 点击"加入观看" → 创建 PeerConnection 并发 offer
+document.getElementById('screenShareJoinBtn').addEventListener('click', () => {
+  if (!pendingShareSharer) return;
+  screenShareNotify.classList.add('hidden');
   const pc = new RTCPeerConnection({ iceServers: [] });
-  peerConnections[data.fromId] = pc;
+  peerConnections[pendingShareSharer.id] = pc;
   pc.onicecandidate = (e) => {
-    if (e.candidate) socket.send(JSON.stringify({ type: 'webrtc_signal', targetId: data.fromId, signal: e.candidate }));
+    if (e.candidate) socket.send(JSON.stringify({ type: 'webrtc_signal', targetId: pendingShareSharer.id, signal: e.candidate }));
   };
   pc.ontrack = (e) => {
     screenShareVideo.srcObject = e.streams[0];
-    screenShareName.textContent = data.fromName + ' 的屏幕';
+    screenShareName.textContent = pendingShareSharer.name + ' 的屏幕';
     screenShareArea.classList.remove('hidden');
   };
   pc.createOffer().then(offer => pc.setLocalDescription(offer)).then(() => {
-    socket.send(JSON.stringify({ type: 'webrtc_signal', targetId: data.fromId, signal: pc.localDescription }));
+    socket.send(JSON.stringify({ type: 'webrtc_signal', targetId: pendingShareSharer.id, signal: pc.localDescription }));
   });
-}
+  pendingShareSharer = null;
+});
+
+// 关闭通知条
+document.getElementById('screenShareNotifyClose').addEventListener('click', () => {
+  screenShareNotify.classList.add('hidden');
+  pendingShareSharer = null;
+});
 
 // 统一处理 WebRTC 信令
 function handleWebRTCSignal(data) {
@@ -736,6 +755,7 @@ function handleWebRTCSignal(data) {
 function handleScreenShareStopMsg(data) {
   if (peerConnections[data.fromId]) { peerConnections[data.fromId].close(); delete peerConnections[data.fromId]; }
   if (Object.keys(peerConnections).length === 0) { screenShareArea.classList.add('hidden'); screenShareVideo.srcObject = null; }
+  if (pendingShareSharer && pendingShareSharer.id === data.fromId) { screenShareNotify.classList.add('hidden'); pendingShareSharer = null; }
 }
 
 document.getElementById('screenShareClose').addEventListener('click', () => {
