@@ -82,15 +82,20 @@ function setupAdminHandlers() {
   ipcMain.handle('admin:deleteFile', dbGuard((e, id) => fileAdmin.deleteFile(id)));
 }
 
+// 先注册 IPC 处理器，再创建窗口（避免渲染器过早调用）
+setupAdminHandlers();
+
 app.whenReady().then(() => {
+  console.log('正在启动 LAN Chat 服务端...');
+  startServer(true);
   createWindow();
   win.once('ready-to-show', () => {
     win.show();
-    // Flush queued logs
     for (const msg of logQueue) {
       win.webContents.executeJavaScript(`addLog(${JSON.stringify(msg)})`).catch(() => {});
     }
     logQueue = [];
+    win.webContents.executeJavaScript('ready()').catch(() => {});
   });
 
   try {
@@ -103,10 +108,6 @@ app.whenReady().then(() => {
     ]));
     tray.on('double-click', () => win.show());
   } catch (e) {}
-
-  console.log('正在启动 LAN Chat 服务端...');
-  setupAdminHandlers();
-  startServer(true);
 });
 
 app.on('window-all-closed', () => {});

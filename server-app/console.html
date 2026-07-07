@@ -290,8 +290,14 @@ async function deleteFile(id) {
   loadFiles();
 }
 
-// Start
-loadAdmin();
+// 等待主进程就绪再加载管理面板
+let readyCalled = false;
+async function ready() {
+  readyCalled = true;
+  loadAdmin();
+}
+// 后备：如果 ready() 5秒内没被调用，自动加载
+setTimeout(() => { if (!readyCalled) loadAdmin(); }, 5000);
 </script>
 </body>
 </html>
