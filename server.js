@@ -1813,24 +1813,30 @@ module.exports = {
 };
 
 // 优雅关闭处理
-process.on('SIGINT', () => {
-  console.log('\n\n🛑 收到关闭信号，正在优雅关闭服务器...');
-  console.log(`📊 最终统计:`);
-  console.log(`   🔗 总连接数: ${connectionCount}`);
-  console.log(`   👥 当前在线用户: ${wss.clients.size}`);
-
+function serverCleanup(callback) {
+  console.log('\n\n🛑 正在关闭服务器...');
   if (udpBeacon) { udpBeacon.close(); console.log('✅ UDP 广播已关闭'); }
-
   wss.close(() => {
     console.log('✅ WebSocket服务器已关闭');
     server.close(() => {
       console.log('✅ HTTP服务器已关闭');
-      if (db) {
-        db.close();
-        console.log('✅ 数据库连接已关闭');
-      }
+      if (db) { db.close(); console.log('✅ 数据库连接已关闭'); }
       console.log('👋 服务器已完全关闭');
-      process.exit(0);
+      if (callback) callback();
+      else process.exit(0);
     });
   });
-});
+}
+process.on('SIGINT', () => serverCleanup());
+
+module.exports = {
+  admin,
+  wss,
+  getTotalMessageCount,
+  queryUserMessages,
+  clearAllMessages,
+  db,
+  startServer,
+  fileAdmin,
+  serverCleanup
+};

@@ -114,10 +114,19 @@ app.whenReady().then(() => {
     tray.setContextMenu(Menu.buildFromTemplate([
       { label: '显示窗口', click: () => win.show() },
       { type: 'separator' },
-      { label: '退出', click: () => { app.isQuitting = true; app.quit(); } },
+      { label: '退出', click: () => {
+        app.isQuitting = true;
+        if (typeof mod.serverCleanup === 'function') {
+          mod.serverCleanup(() => app.exit(0));
+        } else {
+          app.exit(0);
+        }
+      } },
     ]));
     tray.on('double-click', () => win.show());
   } catch (e) {}
 });
 
-app.on('window-all-closed', () => {});
+app.on('window-all-closed', () => {
+  if (process.platform !== 'darwin') app.exit(0);
+});

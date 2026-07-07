@@ -49,6 +49,7 @@ function Build-ServerSetup {
     # Electron renderer (log console)
     Copy-Item "$Root\server-app\main.js"       "$Staging\main.js"
     Copy-Item "$Root\server-app\console.html"  "$Staging\console.html"
+    Copy-Item "$Root\server-app\preload.js"    "$Staging\preload.js"
 
     # Server & web files
     Copy-Item "$Root\server.js"             "$Staging\server.js"
