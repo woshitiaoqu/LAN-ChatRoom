@@ -1,7 +1,7 @@
 const WebSocket = require('ws');
 const http = require('http');
 const express = require('express');
-const sqlite3 = require('sqlite3').verbose();
+const initSqlJs = require('sql.js');
 const { open } = require('sqlite');
 const { execSync } = require('child_process');
 const fs = require('fs');
@@ -43,9 +43,10 @@ let db;
 // 初始化SQLite数据库
 async function initDatabase() {
   try {
+    const SQL = await initSqlJs();
     db = await open({
       filename: './chat.db',
-      driver: sqlite3.Database
+      driver: SQL.Database
     });
 
     // 创建消息表（支持 text 和 image 类型）

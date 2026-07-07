@@ -110,30 +110,61 @@ LAN-ChatRoom/
 - 数据库文件 `chat.db` 包含聊天记录，已在 `.gitignore` 中排除
 - **屏幕共享** 需要浏览器支持 `getDisplayMedia`，通过局域网 IP 访问时可能因非安全上下文被限制，可将地址加入浏览器不安全来源白名单（`edge://flags/#unsafely-treat-insecure-origin-as-secure`）
 
-## 打包为独立软件
+## 打包为独立软件（便携版）
 
-### 服务端（LANChat-Server.exe）
-
-```bash
-npm run build:server
-# 或手动安装 pkg 后打包
-npm install -g pkg
-pkg server.js --targets node18-win-x64 --output dist/LANChat-Server.exe
-```
-
-打包后附带 `config.json` 放在同目录即可使用。双击运行，浏览器访问 `http://本机IP:8082`。
-
-### 客户端（LANChat-Client.exe）
+无需安装 Node.js，下载即用。
 
 ```bash
-npm run build:client
-# 或手动打包
-cd client
-npm install
-npm run build
+# 一键打包服务端 + 客户端
+.\build.ps1
+# 或分别打包
+.\build.ps1 server
+.\build.ps1 client
 ```
 
-安装包生成在 `client/dist/`。客户端启动后自动搜索局域网内的服务端，显示在列表中，点击即可连接。
+打包后目录结构：
+
+```
+dist/
+├── server/                    # 服务端（约 127MB）
+│   ├── node.exe              # Node.js 运行时
+│   ├── server.js             # 聊天服务
+│   ├── adminConsole.js       # 管理员控制台
+│   ├── config.json           # 配置文件
+│   ├── index.html / script.js / style.css  # 前端页面
+│   ├── game.html / game.js   # 游戏大厅
+│   ├── gomoku.js / tictactoe.js / ...      # 联机游戏模块
+│   ├── games/                # 单机游戏（21 款）
+│   ├── node_modules/         # 依赖
+│   ├── uploads/              # 上传文件目录
+│   └── start.bat             ← 双击启动
+│
+└── client/                    # 客户端（约 88MB）
+    ├── node.exe              # Node.js 运行时
+    ├── client.js             # 自动发现脚本
+    └── start.bat             ← 双击启动
+```
+
+### 使用方法
+
+**服务端**：双击 `dist/server/start.bat`，终端显示服务器地址（如 `http://192.168.1.5:8082`）。
+
+**客户端**：双击 `dist/client/start.bat`，自动搜索局域网内的服务端，显示列表：
+
+```
+🔍 LAN ChatRoom - 客户端
+发现 1 台服务器:
+
+  1. 客厅-PC
+     192.168.1.5:8082
+
+  0. 手动输入 IP 地址
+  q. 退出
+
+请选择服务器序号:
+```
+
+选择序号后自动打开浏览器进入聊天室。如果未自动发现，可选 0 手动输入 IP。
 
 ### 配置说明（config.json）
 
