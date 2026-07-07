@@ -2,6 +2,7 @@ const { app, BrowserWindow, ipcMain, Menu, Tray } = require('electron');
 const path = require('path');
 
 let win, tray;
+let dbReady = false;
 
 function createWindow() {
   win = new BrowserWindow({
@@ -17,9 +18,12 @@ function createWindow() {
   });
 }
 
+let logQueue = [];
 function appendLog(msg) {
   if (win && !win.isDestroyed()) {
-    win.webContents.executeJavaScript(`addLog(${JSON.stringify(msg)})`);
+    win.webContents.executeJavaScript(`addLog(${JSON.stringify(msg)})`).catch(() => {});
+  } else {
+    logQueue.push(msg);
   }
 }
 
@@ -28,19 +32,31 @@ const origErr = console.error;
 console.log = (...args) => { origLog(...args); appendLog(args.join(' ')); };
 console.error = (...args) => { origErr(...args); appendLog('[ERR] ' + args.join(' ')); };
 
-// Admin IPC handlers
 let admin, db, wss, fileAdmin, getTotalMessageCount, queryUserMessages, clearAllMessages, startServer;
 const mod = require('./server.js');
 
+function waitForDb() {
+  return new Promise(resolve => {
+    if (dbReady) return resolve();
+    const check = setInterval(() => {
+      if (mod.db) { dbReady = true; clearInterval(check); resolve(); }
+    }, 100);
+  });
+}
+
 function setupAdminHandlers() {
   admin = mod.admin;
-  db = mod.db;
   wss = mod.wss;
   fileAdmin = mod.fileAdmin;
   getTotalMessageCount = mod.getTotalMessageCount;
   queryUserMessages = mod.queryUserMessages;
   clearAllMessages = mod.clearAllMessages;
   startServer = mod.startServer;
+
+  const dbGuard = (fn) => async (...args) => {
+    await waitForDb();
+    return fn(...args);
+  };
 
   ipcMain.handle('admin:getOnlineUsers', () => admin.getOnlineUsers());
   ipcMain.handle('admin:getServerStatus', () => admin.getServerStatus());
@@ -58,17 +74,24 @@ function setupAdminHandlers() {
   ipcMain.handle('admin:removeBannedWord', (e, word) => admin.removeBannedWord(word));
   ipcMain.handle('admin:bannedIps', () => admin.bannedIps);
   ipcMain.handle('admin:bannedMacs', () => admin.bannedMacs);
-  ipcMain.handle('admin:getTotalMessageCount', () => getTotalMessageCount());
-  ipcMain.handle('admin:queryMessages', (e, username, start, end, limit) =>
-    queryUserMessages(username, start, end, limit));
-  ipcMain.handle('admin:clearMessages', () => clearAllMessages());
-  ipcMain.handle('admin:getFiles', () => fileAdmin.getFileList());
-  ipcMain.handle('admin:deleteFile', (e, id) => fileAdmin.deleteFile(id));
+  ipcMain.handle('admin:getTotalMessageCount', dbGuard(getTotalMessageCount));
+  ipcMain.handle('admin:queryMessages', dbGuard((username, start, end, limit) =>
+    queryUserMessages(username, start, end, limit)));
+  ipcMain.handle('admin:clearMessages', dbGuard(clearAllMessages));
+  ipcMain.handle('admin:getFiles', dbGuard(() => fileAdmin.getFileList()));
+  ipcMain.handle('admin:deleteFile', dbGuard((e, id) => fileAdmin.deleteFile(id)));
 }
 
 app.whenReady().then(() => {
   createWindow();
-  win.once('ready-to-show', () => win.show());
+  win.once('ready-to-show', () => {
+    win.show();
+    // Flush queued logs
+    for (const msg of logQueue) {
+      win.webContents.executeJavaScript(`addLog(${JSON.stringify(msg)})`).catch(() => {});
+    }
+    logQueue = [];
+  });
 
   try {
     tray = new Tray(path.join(__dirname, 'icon.png'));
