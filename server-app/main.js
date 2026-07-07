@@ -1,12 +1,11 @@
-const { app, BrowserWindow, Menu, Tray } = require('electron');
+const { app, BrowserWindow, ipcMain, Menu, Tray } = require('electron');
 const path = require('path');
-const { startServer } = require('./server.js');
 
 let win, tray;
 
 function createWindow() {
   win = new BrowserWindow({
-    width: 800, height: 600,
+    width: 900, height: 650,
     minWidth: 400, minHeight: 250,
     title: 'LAN Chat 服务端',
     show: false,
@@ -29,6 +28,44 @@ const origErr = console.error;
 console.log = (...args) => { origLog(...args); appendLog(args.join(' ')); };
 console.error = (...args) => { origErr(...args); appendLog('[ERR] ' + args.join(' ')); };
 
+// Admin IPC handlers
+let admin, db, wss, fileAdmin, getTotalMessageCount, queryUserMessages, clearAllMessages, startServer;
+const mod = require('./server.js');
+
+function setupAdminHandlers() {
+  admin = mod.admin;
+  db = mod.db;
+  wss = mod.wss;
+  fileAdmin = mod.fileAdmin;
+  getTotalMessageCount = mod.getTotalMessageCount;
+  queryUserMessages = mod.queryUserMessages;
+  clearAllMessages = mod.clearAllMessages;
+  startServer = mod.startServer;
+
+  ipcMain.handle('admin:getOnlineUsers', () => admin.getOnlineUsers());
+  ipcMain.handle('admin:getServerStatus', () => admin.getServerStatus());
+  ipcMain.handle('admin:getBannedWords', () => admin.getBannedWords());
+  ipcMain.handle('admin:broadcast', (e, content) => admin.broadcastSystemMessage(content));
+  ipcMain.handle('admin:muteUser', (e, userId, mute) => admin.muteUser(userId, mute));
+  ipcMain.handle('admin:muteByUsername', (e, username, mute) => admin.muteUserByUsername(username, mute));
+  ipcMain.handle('admin:kickUser', (e, userId) => admin.kickUser(userId));
+  ipcMain.handle('admin:kickByUsername', (e, username) => admin.kickUserByUsername(username));
+  ipcMain.handle('admin:banIp', (e, ip) => admin.banIp(ip));
+  ipcMain.handle('admin:unbanIp', (e, ip) => admin.unbanIp(ip));
+  ipcMain.handle('admin:banMac', (e, mac) => admin.banMac(mac));
+  ipcMain.handle('admin:unbanMac', (e, mac) => admin.unbanMac(mac));
+  ipcMain.handle('admin:addBannedWord', (e, word) => admin.addBannedWord(word));
+  ipcMain.handle('admin:removeBannedWord', (e, word) => admin.removeBannedWord(word));
+  ipcMain.handle('admin:bannedIps', () => admin.bannedIps);
+  ipcMain.handle('admin:bannedMacs', () => admin.bannedMacs);
+  ipcMain.handle('admin:getTotalMessageCount', () => getTotalMessageCount());
+  ipcMain.handle('admin:queryMessages', (e, username, start, end, limit) =>
+    queryUserMessages(username, start, end, limit));
+  ipcMain.handle('admin:clearMessages', () => clearAllMessages());
+  ipcMain.handle('admin:getFiles', () => fileAdmin.getFileList());
+  ipcMain.handle('admin:deleteFile', (e, id) => fileAdmin.deleteFile(id));
+}
+
 app.whenReady().then(() => {
   createWindow();
   win.once('ready-to-show', () => win.show());
@@ -45,6 +82,7 @@ app.whenReady().then(() => {
   } catch (e) {}
 
   console.log('正在启动 LAN Chat 服务端...');
+  setupAdminHandlers();
   startServer(true);
 });
 
