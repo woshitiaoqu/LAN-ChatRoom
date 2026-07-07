@@ -884,6 +884,15 @@ function broadcastFileEvent(type, data) {
 }
 
 // 上传文件（含哈希去重）
+function fixFilename(name) {
+  try {
+    const buf = Buffer.from(name, 'latin1');
+    const decoded = buf.toString('utf8');
+    if (/[\u4e00-\u9fff\u3000-\u303f]/.test(decoded) && /[\x80-\xff]/.test(name)) return decoded;
+  } catch (e) {}
+  return name;
+}
+
 const uploadMiddleware = upload.single('file');
 app.post('/upload', (req, res) => {
   uploadMiddleware(req, res, async (err) => {
@@ -900,6 +909,8 @@ app.post('/upload', (req, res) => {
       const { hash, clientId, username } = req.body;
       if (!hash) return res.status(400).json({ error: '缺少文件哈希' });
 
+      const originalname = fixFilename(req.file.originalname);
+
       // 查重
       const existing = await db.get('SELECT id, filename, size FROM file_shares WHERE hash = ? AND deleted = 0', hash);
       if (existing) {
@@ -910,12 +921,12 @@ app.post('/upload', (req, res) => {
       const storedName = req.file.filename;
       await db.run(
         'INSERT INTO file_shares (filename, stored_name, mime_type, size, hash, uploader_id, uploader_name) VALUES (?, ?, ?, ?, ?, ?, ?)',
-        [req.file.originalname, storedName, req.file.mimetype, req.file.size, hash, parseInt(clientId) || 0, username || '未知']
+        [originalname, storedName, req.file.mimetype, req.file.size, hash, parseInt(clientId) || 0, username || '未知']
       );
       const fileId = db.lastID || (await db.get('SELECT id FROM file_shares WHERE stored_name = ?', storedName)).id;
 
-      broadcastFileEvent('file_added', { file: { id: fileId, filename: req.file.originalname, size: req.file.size, uploader: username, time: new Date().toLocaleString() } });
-      res.json({ id: fileId, filename: req.file.originalname, size: req.file.size });
+      broadcastFileEvent('file_added', { file: { id: fileId, filename: originalname, size: req.file.size, uploader: username, time: new Date().toLocaleString() } });
+      res.json({ id: fileId, filename: originalname, size: req.file.size });
     } catch (err) {
       console.error('❌ 文件上传失败:', err);
       if (req.file) fs.unlink(req.file.path, () => {});
@@ -933,7 +944,8 @@ app.get('/download/:id', async (req, res) => {
   const filePath = path.join(uploadDir, file.stored_name);
   if (!fs.existsSync(filePath)) return res.status(404).json({ error: '文件已丢失' });
 
-  res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(file.filename)}"`);
+  const encodedFilename = encodeURIComponent(file.filename);
+  res.setHeader('Content-Disposition', `attachment; filename="${encodedFilename}"; filename*=UTF-8''${encodedFilename}`);
   res.setHeader('Content-Type', file.mime_type);
   res.sendFile(filePath);
 });
