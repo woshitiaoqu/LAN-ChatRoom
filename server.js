@@ -1703,45 +1703,65 @@ const PORT = config.port || 8082;
 const HOST = '0.0.0.0';
 
 function startServer(silent = false) {
-  server.listen(PORT, HOST, () => {
-    if (!silent) {
-      const networkInterfaces = os.networkInterfaces();
-      const ipAddresses = [];
-      
-      Object.keys(networkInterfaces).forEach((iface) => {
-        networkInterfaces[iface].forEach((details) => {
-          if (details.family === 'IPv4' && !details.internal) {
-            ipAddresses.push(details.address);
-          }
-        });
-      });
+  const retryDelay = 2000;
+  const MAX_RETRIES = 3;
+  let retries = 0;
 
-      console.log('\n🚀 ========== 聊天服务器启动成功 ==========');
-      console.log(`📅 启动时间: ${new Date().toLocaleString()}`);
-      console.log(`📊 服务器信息:`);
-      console.log(`   🔌 端口: ${PORT}`);
-      console.log(`   🖥️  主机: ${HOST}`);
-      console.log(`\n🌐 访问地址:`);
-      console.log(`   💻 本机访问: http://localhost:${PORT}`);
-      console.log(`   🌍 局域网访问:`);
-      ipAddresses.forEach((ip, index) => {
-        console.log(`      ${index + 1}. http://${ip}:${PORT}`);
-      });
-      console.log('\n📝 日志说明:');
-      console.log('   🔗 新用户连接');
-      console.log('   📨 收到消息');
-      console.log('   💾 保存消息');
-      console.log('   📥 获取历史消息');
-      console.log('   🔌 用户断开连接');
-      console.log('   📊 服务器状态监控');
-      console.log('\n🔧 管理员功能已启用');
-      console.log('   运行 node adminConsole.js 启动管理控制台');
-      console.log('========================================\n');
-    } else {
-      console.log(`✅ 服务器已启动 → http://localhost:${PORT}`);
+  function doListen() {
+    server.listen(PORT, HOST, () => {
+      if (!silent) {
+        const networkInterfaces = os.networkInterfaces();
+        const ipAddresses = [];
+        Object.keys(networkInterfaces).forEach((iface) => {
+          networkInterfaces[iface].forEach((details) => {
+            if (details.family === 'IPv4' && !details.internal) {
+              ipAddresses.push(details.address);
+            }
+          });
+        });
+        console.log('\n🚀 ========== 聊天服务器启动成功 ==========');
+        console.log(`📅 启动时间: ${new Date().toLocaleString()}`);
+        console.log(`📊 服务器信息:`);
+        console.log(`   🔌 端口: ${PORT}`);
+        console.log(`   🖥️  主机: ${HOST}`);
+        console.log(`\n🌐 访问地址:`);
+        console.log(`   💻 本机访问: http://localhost:${PORT}`);
+        console.log(`   🌍 局域网访问:`);
+        ipAddresses.forEach((ip, index) => {
+          console.log(`      ${index + 1}. http://${ip}:${PORT}`);
+        });
+        console.log('\n📝 日志说明:');
+        console.log('   🔗 新用户连接');
+        console.log('   📨 收到消息');
+        console.log('   💾 保存消息');
+        console.log('   📥 获取历史消息');
+        console.log('   🔌 用户断开连接');
+        console.log('   📊 服务器状态监控');
+        console.log('\n🔧 管理员功能已启用');
+        console.log('   运行 node adminConsole.js 启动管理控制台');
+        console.log('========================================\n');
+      } else {
+        console.log(`✅ 服务器已启动 → http://localhost:${PORT}`);
+      }
+      startDiscovery();
+    });
+  }
+
+  server.on('error', (err) => {
+    if (err.code === 'EADDRINUSE') {
+      retries++;
+      if (retries <= MAX_RETRIES) {
+        console.log(`⚠️  端口 ${PORT} 被占用，${retryDelay/1000}秒后重试 (${retries}/${MAX_RETRIES})...`);
+        server.close();
+        setTimeout(doListen, retryDelay);
+      } else {
+        console.error(`❌ 端口 ${PORT} 被占用，重试 ${MAX_RETRIES} 次后仍无法启动`);
+        console.error(`   请检查是否有其他服务占用该端口`);
+      }
     }
-    startDiscovery();
   });
+
+  doListen();
 }
 
 if (require.main === module) {
