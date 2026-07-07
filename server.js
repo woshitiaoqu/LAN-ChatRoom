@@ -967,6 +967,31 @@ app.get('/api/files', async (req, res) => {
   res.json(filtered);
 });
 
+// 上传者删除自己的文件
+app.delete('/api/files/:id', async (req, res) => {
+  try {
+    const { username } = req.body;
+    if (!username) return res.status(400).json({ error: '缺少用户名' });
+
+    const file = await db.get('SELECT * FROM file_shares WHERE id = ? AND deleted = 0', parseInt(req.params.id));
+    if (!file) return res.status(404).json({ error: '文件不存在' });
+
+    if (file.uploader_name !== username) {
+      return res.status(403).json({ error: '只能删除自己上传的文件' });
+    }
+
+    await db.run('UPDATE file_shares SET deleted = 1 WHERE id = ?', file.id);
+    // 删除物理文件
+    const filePath = path.join(uploadDir, file.stored_name);
+    fs.unlink(filePath, () => {});
+    broadcastFileEvent('file_deleted', { id: file.id });
+    res.json({ success: true });
+  } catch (err) {
+    console.error('❌ 文件删除失败:', err);
+    res.status(500).json({ error: '删除失败' });
+  }
+});
+
 // ==================== 文件管理（admin API）====================
 
 const fileAdmin = {

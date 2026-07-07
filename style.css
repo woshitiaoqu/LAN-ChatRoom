@@ -1324,6 +1324,12 @@ body.spectator .gomoku-cell:hover {
   border: none; border-radius: 4px; cursor: pointer; text-decoration: none; white-space: nowrap;
 }
 .file-item-dl:hover { background: #357abd; }
+.file-item-actions { display: flex; gap: 4px; align-items: center; }
+.file-item-del {
+  padding: 4px 10px; font-size: 12px; background: #e74c3c; color: #fff;
+  border: none; border-radius: 4px; cursor: pointer; white-space: nowrap;
+}
+.file-item-del:hover { background: #c0392b; }
 .file-empty { text-align: center; color: #999; font-size: 13px; padding: 40px 0; }
 .file-panel-footer { padding: 12px 16px; border-top: 1px solid #eee; }
 .file-panel-footer button {

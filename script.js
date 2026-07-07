@@ -292,12 +292,16 @@ async function renderFileList() {
     if (fileList) {
       fileList.innerHTML = files.map(f => {
         const size = (f.size / 1024).toFixed(1) + 'KB';
+        const isOwner = f.uploader_name === currentUser;
         return '<div class="file-item">' +
           '<div class="file-item-info">' +
           '<div class="file-item-name">' + f.filename + '</div>' +
           '<div class="file-item-meta">' + size + ' · ' + f.uploader_name + ' · ' + f.uploaded_at + '</div>' +
           '</div>' +
+          '<div class="file-item-actions">' +
           '<a class="file-item-dl" href="/download/' + f.id + '" download>下载</a>' +
+          (isOwner ? '<button class="file-item-del" data-id="' + f.id + '">删除</button>' : '') +
+          '</div>' +
           '</div>';
       }).join('');
       if (files.length === 0) fileList.innerHTML = '<div class="file-empty">暂无文件</div>';
@@ -306,6 +310,31 @@ async function renderFileList() {
     console.error('获取文件列表失败:', err);
   }
 }
+
+// 文件列表上的委托事件：删除按钮
+fileList.addEventListener('click', async (e) => {
+  const btn = e.target.closest('.file-item-del');
+  if (!btn) return;
+  const id = btn.dataset.id;
+  if (!confirm('确定删除此文件？')) return;
+  try {
+    const res = await fetch('/api/files/' + id, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: currentUser })
+    });
+    const result = await res.json();
+    if (result.success) {
+      addSystemMessage('你删除了文件');
+      renderFileList();
+    } else {
+      alert(result.error || '删除失败');
+    }
+  } catch (err) {
+    console.error('删除失败:', err);
+    alert('删除失败');
+  }
+});
 
 function sendMessage() {
   const content = messageInput.value.trim();
