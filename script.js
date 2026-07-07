@@ -116,7 +116,7 @@ function connectWebSocket() {
     } else if (data.type === 'screen_share_stop') {
       handleScreenShareStopMsg(data);
       } else if (data.type === 'file_added') {
-        addSystemMessage(data.uploader + ' 上传了文件: ' + data.filename);
+        addSystemMessage(data.file.uploader + ' 上传了文件: ' + data.file.filename);
         renderFileList();
       } else if (data.type === 'file_deleted' || data.type === 'file_updated') {
         renderFileList();
@@ -217,6 +217,13 @@ fileInput.addEventListener('change', async (e) => {
   if (!file) return;
   fileInput.value = '';
 
+  // 客户端文件大小校验
+  const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB
+  if (file.size > MAX_FILE_SIZE) {
+    alert('文件过大，限制 100MB');
+    return;
+  }
+
   try {
     // 计算SHA-256哈希
     const arrayBuffer = await file.arrayBuffer();
@@ -233,6 +240,11 @@ fileInput.addEventListener('change', async (e) => {
 
     const res = await fetch('/upload', { method: 'POST', body: formData });
     const result = await res.json();
+
+    if (result.error) {
+      addSystemMessage('上传失败: ' + result.error);
+      return;
+    }
 
     if (result.duplicate) {
       addSystemMessage('文件已存在（去重）: ' + result.filename);

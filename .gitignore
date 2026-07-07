@@ -6,3 +6,7 @@ chat.db
 .DS_Store
 Thumbs.db
 AGENTS.md
+uploads/*
+!uploads/.gitkeep
+downloaded.txt
+test_upload.txt
