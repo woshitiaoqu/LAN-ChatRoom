@@ -953,11 +953,14 @@ app.get('/api/files', async (req, res) => {
 
 const fileAdmin = {
   async listAll() {
-    return await db.all('SELECT id, filename, size, hash, uploader_name, uploader_id, uploader_name, visible, downloadable, allowed_users, deleted, uploaded_at FROM file_shares ORDER BY uploaded_at DESC');
+    return await db.all('SELECT id, filename, size, hash, uploader_name, uploader_id, visible, downloadable, allowed_users, deleted, uploaded_at FROM file_shares WHERE deleted = 0 ORDER BY uploaded_at DESC');
   },
   async delete(id) {
+    const file = await db.get('SELECT stored_name, filename FROM file_shares WHERE id = ? AND deleted = 0', id);
+    if (!file) return { error: '文件不存在或已删除' };
     await db.run('UPDATE file_shares SET deleted = 1 WHERE id = ?', id);
     broadcastFileEvent('file_deleted', { id });
+    return { success: true, filename: file.filename };
   },
   async toggleVisible(id) {
     const f = await db.get('SELECT visible FROM file_shares WHERE id = ?', id);

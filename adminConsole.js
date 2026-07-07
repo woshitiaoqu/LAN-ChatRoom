@@ -10,6 +10,25 @@ const rl = readline.createInterface({
   prompt: '🔧 管理员控制台 > '
 });
 
+// 解析序号输入: "1 2 4" / "1,3,5" / "1-3" / 混合
+function parseNums(input, max) {
+  const nums = [];
+  const parts = input.split(/[\s,，]+/).filter(Boolean);
+  for (const part of parts) {
+    const range = part.split('-');
+    if (range.length === 2) {
+      const start = parseInt(range[0]), end = parseInt(range[1]);
+      if (!isNaN(start) && !isNaN(end)) {
+        for (let i = Math.max(1, start); i <= Math.min(max, end); i++) nums.push(i);
+      }
+    } else {
+      const n = parseInt(part);
+      if (!isNaN(n) && n >= 1 && n <= max) nums.push(n);
+    }
+  }
+  return [...new Set(nums)].sort((a, b) => a - b);
+}
+
 // 显示主菜单
 function showMenu() {
   const os = require('os');
@@ -506,13 +525,20 @@ function manageFiles() {
         resolve();
       } else if (choice === '2') {
         if (files.length === 0) { console.log('暂无文件'); resolve(); return; }
-        files.forEach((f, i) => console.log(`  ${i+1}. ${f.filename}`));
-        rl.question('请输入要删除的文件序号 (0取消): ', async (num) => {
-          const n = parseInt(num);
-          if (n > 0 && n <= files.length) {
-            await fileAdmin.delete(files[n-1].id);
-            console.log('✅ 已删除');
+        files.forEach((f, i) => console.log(`  ${i+1}. ${f.filename}  [${f.uploader_name}] ${(f.size/1024).toFixed(1)}KB`));
+        rl.question('请输入要删除的文件序号（空格/逗号分隔，支持范围如 1-3，0取消）: ', async (input) => {
+          const indices = parseNums(input, files.length);
+          if (indices.length === 0) { resolve(); return; }
+          console.log(`正在删除 ${indices.length} 个文件...`);
+          for (const idx of indices) {
+            const result = await fileAdmin.delete(files[idx - 1].id);
+            if (result.success) {
+              console.log(`  ✅ ${result.filename}`);
+            } else {
+              console.log(`  ❌ ${result.error || '删除失败'}`);
+            }
           }
+          console.log('✅ 删除完成');
           resolve();
         });
       } else if (choice === '3') {
