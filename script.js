@@ -295,7 +295,7 @@ async function renderFileList() {
         const isOwner = f.uploader_name === currentUser;
         return '<div class="file-item">' +
           '<div class="file-item-info">' +
-          '<div class="file-item-name">' + f.filename + '</div>' +
+          '<div class="file-item-name" title="' + f.filename.replace(/"/g, '&quot;') + '">' + f.filename + '</div>' +
           '<div class="file-item-meta">' + size + ' · ' + f.uploader_name + ' · ' + f.uploaded_at + '</div>' +
           '</div>' +
           '<div class="file-item-actions">' +
