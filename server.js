@@ -231,6 +231,12 @@ if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 let maxFileSize = 0; // 0 = 无限制（字节）
 const DEFAULT_MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB
 
+// 服务器配置（可动态修改）
+const serverConfig = {
+  imageMaxSize: 5 * 1024 * 1024,  // 图片 base64 最大字节数（默认 5MB）
+  allowedExtensions: '',           // 文件上传允许的扩展名，逗号分隔，空=全部允许
+};
+
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, uploadDir),
   filename: (req, file, cb) => cb(null, crypto.randomUUID() + path.extname(file.originalname))
@@ -924,6 +930,16 @@ app.post('/upload', (req, res) => {
         return res.json({ duplicate: true, id: existing.id, filename: existing.filename, size: existing.size });
       }
 
+      // 检查扩展名白名单
+      if (serverConfig.allowedExtensions) {
+        const ext = path.extname(req.file.originalname).toLowerCase().replace(/^\./, '');
+        const allowed = serverConfig.allowedExtensions.split(',');
+        if (!allowed.includes(ext)) {
+          fs.unlink(req.file.path, () => {});
+          return res.status(415).json({ error: `不支持的文件格式，允许: ${serverConfig.allowedExtensions}` });
+        }
+      }
+
       const storedName = req.file.filename;
       await db.run(
         'INSERT INTO file_shares (filename, stored_name, mime_type, size, hash, uploader_id, uploader_name) VALUES (?, ?, ?, ?, ?, ?, ?)',
@@ -992,6 +1008,11 @@ app.delete('/api/files/:id', async (req, res) => {
   }
 });
 
+// 获取服务器配置（客户端用）
+app.get('/api/config', (req, res) => {
+  res.json(fileAdmin.getConfig());
+});
+
 // ==================== 文件管理（admin API）====================
 
 const fileAdmin = {
@@ -1036,6 +1057,33 @@ const fileAdmin = {
     maxFileSize = size;
     recreateUpload();
     return { success: true, maxFileSize: size, maxFileSizeMB: size > 0 ? (size / 1024 / 1024) : Infinity };
+  },
+  getConfig() {
+    return {
+      imageMaxSize: serverConfig.imageMaxSize,
+      imageMaxSizeMB: (serverConfig.imageMaxSize / 1024 / 1024).toFixed(0),
+      allowedExtensions: serverConfig.allowedExtensions,
+      maxFileSize,
+      maxFileSizeMB: maxFileSize > 0 ? (maxFileSize / 1024 / 1024).toFixed(0) : '∞',
+    };
+  },
+  setImageMaxSize(bytes) {
+    const size = parseInt(bytes);
+    if (isNaN(size) || size < 0) return { error: '无效的大小' };
+    serverConfig.imageMaxSize = size;
+    return { success: true, imageMaxSize: size, imageMaxSizeMB: (size / 1024 / 1024).toFixed(0) };
+  },
+  setAllowedExtensions(exts) {
+    // exts: "jpg,png,gif" 或 "" (全部允许)
+    if (typeof exts !== 'string') return { error: '格式错误' };
+    const cleaned = exts.trim().toLowerCase();
+    if (cleaned === '') {
+      serverConfig.allowedExtensions = '';
+    } else {
+      const parts = cleaned.split(',').map(s => s.trim().replace(/^\./, '')).filter(Boolean);
+      serverConfig.allowedExtensions = [...new Set(parts)].join(',');
+    }
+    return { success: true, allowedExtensions: serverConfig.allowedExtensions || '(全部允许)' };
   }
 };
 
@@ -1556,7 +1604,16 @@ wss.on('connection', async (ws, req) => {
       if (parsedMessage.content && parsedMessage.type !== 'image') {
         parsedMessage.content = admin.filterText(parsedMessage.content);
       }
-      
+
+      // 服务端校验图片大小
+      if (parsedMessage.type === 'image' && parsedMessage.content) {
+        const base64Size = Buffer.from(parsedMessage.content.replace(/^data:image\/\w+;base64,/, ''), 'base64').length;
+        if (base64Size > serverConfig.imageMaxSize) {
+          ws.send(JSON.stringify({ type: 'error', content: `图片过大，限制 ${(serverConfig.imageMaxSize / 1024 / 1024).toFixed(0)}MB` }));
+          return;
+        }
+      }
+
       await saveMessage(parsedMessage);
       broadcast(parsedMessage);
     } catch (err) {

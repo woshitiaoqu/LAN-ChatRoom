@@ -146,6 +146,16 @@ function connectWebSocket() {
   };
 }
 
+// 获取服务器配置
+let serverCfg = { imageMaxSize: 5 * 1024 * 1024, imageMaxSizeMB: '5', allowedExtensions: '' };
+async function fetchConfig() {
+  try {
+    const res = await fetch('/api/config');
+    if (res.ok) serverCfg = await res.json();
+  } catch (e) { /* 使用默认值 */ }
+}
+fetchConfig();
+
 // 发送消息
 sendBtn.addEventListener('click', sendMessage);
 messageInput.addEventListener('keypress', (e) => {
@@ -170,9 +180,10 @@ imageInput.addEventListener('change', (e) => {
     return;
   }
   
-  // 检查文件大小（限制 5MB）
-  if (file.size > 5 * 1024 * 1024) {
-    alert('图片大小不能超过 5MB');
+  // 检查文件大小（使用服务端配置）
+  const maxSize = serverCfg.imageMaxSize;
+  if (maxSize > 0 && file.size > maxSize) {
+    alert('图片大小不能超过 ' + serverCfg.imageMaxSizeMB + 'MB');
     return;
   }
   
@@ -230,6 +241,16 @@ fileInput.addEventListener('change', async (e) => {
   const file = e.target.files[0];
   if (!file) return;
   fileInput.value = '';
+
+  // 客户端文件格式校验
+  if (serverCfg.allowedExtensions) {
+    const ext = file.name.split('.').pop().toLowerCase();
+    const allowed = serverCfg.allowedExtensions.split(',');
+    if (!allowed.includes(ext)) {
+      alert('不支持的文件格式，允许: ' + serverCfg.allowedExtensions);
+      return;
+    }
+  }
 
   // 客户端文件大小校验（防误操作，实际限制由服务端控制）
   const MAX_FILE_SIZE = 2 * 1024 * 1024 * 1024; // 2GB 软限制

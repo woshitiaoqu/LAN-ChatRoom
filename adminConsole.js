@@ -508,12 +508,15 @@ function manageFiles() {
     console.log('│  4. 切换下载权限                       │');
     console.log('│  5. 设置用户白名单                     │');
     console.log('│  6. 修改上传大小限制                   │');
+    console.log('│  7. 修改图片发送大小限制               │');
+    console.log('│  8. 设置允许上传的文件格式             │');
     console.log('│  0. 返回                               │');
     console.log('└────────────────────────────────────────┘');
     const limit = fileAdmin.getMaxFileSize();
     const limitText = limit > 0 ? (limit / 1024 / 1024).toFixed(0) + 'MB' : '无限制';
-    console.log(`共 ${files.length} 个文件 | 上传限制: ${limitText}`);
-    rl.question('请选择 (0-6): ', async (choice) => {
+    const cfg = fileAdmin.getConfig();
+    console.log(`共 ${files.length} 个文件 | 上传限制: ${limitText} | 图片限制: ${cfg.imageMaxSizeMB}MB | 允许格式: ${cfg.allowedExtensions || '全部'}`);
+    rl.question('请选择 (0-8): ', async (choice) => {
       if (choice === '1') {
         if (files.length === 0) { console.log('暂无文件'); resolve(); return; }
         console.log('\n📋 文件列表:');
@@ -601,6 +604,45 @@ function manageFiles() {
           if (result.success) {
             const newText = bytes > 0 ? (bytes / 1024 / 1024).toFixed(0) + 'MB' : '无限制';
             console.log(`✅ 上传限制已修改为: ${newText}`);
+          } else {
+            console.log(`❌ ${result.error}`);
+          }
+          resolve();
+        });
+      } else if (choice === '7') {
+        const cfg = fileAdmin.getConfig();
+        console.log(`\n当前图片发送限制: ${cfg.imageMaxSizeMB}MB`);
+        console.log('输入格式: 数字+单位，如 5MB、10MB、1GB，输入 0 表示无限制');
+        rl.question('请输入新的图片大小限制: ', async (input) => {
+          const s = input.trim().toUpperCase();
+          if (!s) { resolve(); return; }
+          let bytes;
+          if (s === '0') {
+            bytes = 0;
+          } else {
+            const m = s.match(/^(\d+)\s*(B|KB|MB|GB)?$/);
+            if (!m) { console.log('❌ 格式错误，示例: 5MB、10MB、1GB'); resolve(); return; }
+            const num = parseInt(m[1]);
+            const unit = m[2] || 'MB';
+            const mult = { B: 1, KB: 1024, MB: 1024 * 1024, GB: 1024 * 1024 * 1024 };
+            bytes = num * (mult[unit] || mult['MB']);
+          }
+          const result = fileAdmin.setImageMaxSize(bytes);
+          if (result.success) {
+            console.log(`✅ 图片发送限制已修改为: ${result.imageMaxSizeMB}MB`);
+          } else {
+            console.log(`❌ ${result.error}`);
+          }
+          resolve();
+        });
+      } else if (choice === '8') {
+        const cfg = fileAdmin.getConfig();
+        console.log(`\n当前允许格式: ${cfg.allowedExtensions || '(全部允许)'}`);
+        console.log('输入格式: 扩展名用逗号分隔，如 jpg,png,gif（回车=全部允许）');
+        rl.question('请输入允许的文件格式: ', async (input) => {
+          const result = fileAdmin.setAllowedExtensions(input.trim());
+          if (result.success) {
+            console.log(`✅ 允许格式已更新为: ${result.allowedExtensions}`);
           } else {
             console.log(`❌ ${result.error}`);
           }
