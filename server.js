@@ -8,6 +8,8 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const multer = require('multer');
+const os = require('os');
+const dgram = require('dgram');
 
 const app = express();
 const server = http.createServer(app);
@@ -221,20 +223,49 @@ async function getTotalMessageCount() {
   }
 }
 
-// 静态文件服务
+// 获取本机局域网 IP
+function getLocalIP() {
+  const nets = os.networkInterfaces();
+  for (const name of Object.keys(nets)) {
+    for (const net of nets[name]) {
+      if (net.family === 'IPv4' && !net.internal) return net.address;
+    }
+  }
+  return '127.0.0.1';
+}
+
+// 加载配置文件
+let config = {};
+const configPath = path.join(__dirname, 'config.json');
+try {
+  if (fs.existsSync(configPath)) {
+    config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    console.log('✅ 已加载配置文件 config.json');
+  }
+} catch (e) {
+  console.error('⚠️  config.json 解析失败，使用默认配置:', e.message);
+}
+
+// 保存配置到 config.json
+function saveConfig() {
+  try {
+    const merged = { ...config, maxUploadSize: maxFileSize, imageMaxSize: serverConfig.imageMaxSize, allowedExtensions: serverConfig.allowedExtensions, port: PORT };
+    fs.writeFileSync(configPath, JSON.stringify(merged, null, 2), 'utf8');
+  } catch (e) { /* 静默 */ }
+}
 app.use(express.static('.'));
 
 // 文件上传配置
 const uploadDir = path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 
-let maxFileSize = 0; // 0 = 无限制（字节）
+let maxFileSize = typeof config.maxUploadSize === 'number' ? config.maxUploadSize : 0; // 0 = 无限制（字节）
 const DEFAULT_MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB
 
 // 服务器配置（可动态修改）
 const serverConfig = {
-  imageMaxSize: 5 * 1024 * 1024,  // 图片 base64 最大字节数（默认 5MB）
-  allowedExtensions: '',           // 文件上传允许的扩展名，逗号分隔，空=全部允许
+  imageMaxSize: config.imageMaxSize || 5 * 1024 * 1024,  // 图片 base64 最大字节数（默认 5MB）
+  allowedExtensions: config.allowedExtensions || '',      // 文件上传允许的扩展名，逗号分隔，空=全部允许
 };
 
 const storage = multer.diskStorage({
@@ -1056,6 +1087,7 @@ const fileAdmin = {
     if (isNaN(size) || size < 0) return { error: '无效的大小' };
     maxFileSize = size;
     recreateUpload();
+    saveConfig();
     return { success: true, maxFileSize: size, maxFileSizeMB: size > 0 ? (size / 1024 / 1024) : Infinity };
   },
   getConfig() {
@@ -1071,6 +1103,7 @@ const fileAdmin = {
     const size = parseInt(bytes);
     if (isNaN(size) || size < 0) return { error: '无效的大小' };
     serverConfig.imageMaxSize = size;
+    saveConfig();
     return { success: true, imageMaxSize: size, imageMaxSizeMB: (size / 1024 / 1024).toFixed(0) };
   },
   setAllowedExtensions(exts) {
@@ -1083,6 +1116,7 @@ const fileAdmin = {
       const parts = cleaned.split(',').map(s => s.trim().replace(/^\./, '')).filter(Boolean);
       serverConfig.allowedExtensions = [...new Set(parts)].join(',');
     }
+    saveConfig();
     return { success: true, allowedExtensions: serverConfig.allowedExtensions || '(全部允许)' };
   }
 };
@@ -1664,13 +1698,12 @@ setInterval(() => {
 }, 60000);
 
 // 启动服务器
-const PORT = 8082;
+const PORT = config.port || 8082;
 const HOST = '0.0.0.0';
 
 function startServer(silent = false) {
   server.listen(PORT, HOST, () => {
     if (!silent) {
-      const os = require('os');
       const networkInterfaces = os.networkInterfaces();
       const ipAddresses = [];
       
@@ -1706,11 +1739,44 @@ function startServer(silent = false) {
     } else {
       console.log(`✅ 服务器已启动 → http://localhost:${PORT}`);
     }
+    startDiscovery();
   });
 }
 
 if (require.main === module) {
   startServer();
+}
+
+// ==================== UDP 服务发现 ====================
+let udpBeacon = null;
+function startDiscovery() {
+  const discovery = config.discovery || {};
+  if (discovery.enabled === false) return;
+  const broadcastPort = discovery.broadcastPort || 25000;
+  const intervalMs = discovery.intervalMs || 2000;
+  const serverName = discovery.serverName || os.hostname();
+  const localIP = getLocalIP();
+
+  try {
+    udpBeacon = dgram.createSocket({ type: 'udp4', reuseAddr: true });
+    udpBeacon.bind(() => udpBeacon.setBroadcast(true));
+
+    const beacon = () => {
+      const payload = JSON.stringify({
+        type: 'lan-chat-server',
+        name: serverName,
+        ip: localIP,
+        port: PORT,
+        version: '1.1',
+      });
+      udpBeacon.send(payload, 0, payload.length, broadcastPort, '255.255.255.255');
+    };
+    beacon();
+    setInterval(beacon, intervalMs);
+    console.log(`📡 UDP 服务发现已启动（端口 ${broadcastPort}）`);
+  } catch (e) {
+    console.error('⚠️  UDP 服务发现启动失败:', e.message);
+  }
 }
 
 // 导出管理员模块供adminConsole.js使用
@@ -1731,7 +1797,9 @@ process.on('SIGINT', () => {
   console.log(`📊 最终统计:`);
   console.log(`   🔗 总连接数: ${connectionCount}`);
   console.log(`   👥 当前在线用户: ${wss.clients.size}`);
-  
+
+  if (udpBeacon) { udpBeacon.close(); console.log('✅ UDP 广播已关闭'); }
+
   wss.close(() => {
     console.log('✅ WebSocket服务器已关闭');
     server.close(() => {

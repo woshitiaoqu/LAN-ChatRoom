@@ -1,0 +1,12 @@
+{
+  "port": 8082,
+  "discovery": {
+    "enabled": true,
+    "broadcastPort": 25000,
+    "intervalMs": 2000,
+    "serverName": null
+  },
+  "maxUploadSize": 0,
+  "imageMaxSize": 5242880,
+  "allowedExtensions": ""
+}

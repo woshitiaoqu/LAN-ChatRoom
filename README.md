@@ -1,17 +1,18 @@
 # 局域网聊天室
 
 基于 WebSocket 的局域网即时聊天应用，支持多用户实时聊天、游戏大厅、屏幕共享、管理控制台。
+支持 **打包为独立 EXE**（服务端 + 客户端），客户端自动发现局域网服务器。
 
 ## 功能特性
 
 - 实时消息传输（WebSocket）
 - 多用户支持，自定义用户名
-- 图片发送（base64，限制 5MB）
+- 图片发送（base64，限制可配置，默认 5MB）
 - **屏幕共享**（多人同时共享，自由选择观看，自定义全屏大小，基于 WebRTC）
 - **📁 文件共享**（SHA-256 哈希去重防重复上传，WEB 端上传/下载，终端管理）
   - 上传文件，自动计算 SHA-256 哈希，重复文件自动去重
   - 文件面板浏览、下载、上传者自行删除
-  - 管理员控制台：删除文件、切换可见/隐藏、切换下载权限、设置用户白名单、修改上传大小限制
+  - 管理员控制台：删除文件、切换可见/隐藏、切换下载权限、设置用户白名单、修改上传大小/图片限制、设置允许的文件格式
 - **🎮 游戏大厅**（`game.html`）
    - 🕹️ **单机游戏**（21 款）：俄罗斯方块、2048、贪吃蛇、Flappy Bird、飞机大战、迷宫等
    - 🌐 **联机游戏（局域网）**：
@@ -22,9 +23,11 @@
      - ⚫ 黑白棋（翻转棋盘，占地为王）
      - 🔢 猜数字（五轮猜数，比拼运气）
      - 🚢 海战棋（布置舰队，炮击敌舰）
-- 管理控制台（踢出用户、禁言、IP/MAC 黑名单、屏蔽词）
+- 管理控制台（踢出用户、禁言、IP/MAC 黑名单、屏蔽词、文件管理）
 - 小窗模式（Ctrl+Shift+H）
 - SQLite 消息持久化
+- **📡 UDP 服务发现**：客户端自动嗅探局域网内的服务端，零配置连接
+- **⚙️ config.json 配置**：端口、文件限制、广播参数均可配置，运行时修改自动持久化
 
 ## 技术栈
 
@@ -103,6 +106,46 @@ LAN-ChatRoom/
 ## 注意事项
 
 - 确保所有用户在同一个局域网内
-- 默认端口 8082，可在 `server.js` 中修改
+- 默认端口 8082，可在 `config.json` 中修改
 - 数据库文件 `chat.db` 包含聊天记录，已在 `.gitignore` 中排除
 - **屏幕共享** 需要浏览器支持 `getDisplayMedia`，通过局域网 IP 访问时可能因非安全上下文被限制，可将地址加入浏览器不安全来源白名单（`edge://flags/#unsafely-treat-insecure-origin-as-secure`）
+
+## 打包为独立软件
+
+### 服务端（LANChat-Server.exe）
+
+```bash
+npm run build:server
+# 或手动安装 pkg 后打包
+npm install -g pkg
+pkg server.js --targets node18-win-x64 --output dist/LANChat-Server.exe
+```
+
+打包后附带 `config.json` 放在同目录即可使用。双击运行，浏览器访问 `http://本机IP:8082`。
+
+### 客户端（LANChat-Client.exe）
+
+```bash
+npm run build:client
+# 或手动打包
+cd client
+npm install
+npm run build
+```
+
+安装包生成在 `client/dist/`。客户端启动后自动搜索局域网内的服务端，显示在列表中，点击即可连接。
+
+### 配置说明（config.json）
+
+| 字段 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `port` | number | 8082 | HTTP 服务端口 |
+| `discovery.enabled` | boolean | true | 是否启动 UDP 服务发现 |
+| `discovery.broadcastPort` | number | 25000 | UDP 广播端口 |
+| `discovery.intervalMs` | number | 2000 | 广播间隔（毫秒） |
+| `discovery.serverName` | string | null | 服务器名称（null=使用主机名） |
+| `maxUploadSize` | number | 0 | 文件上传大小限制（0=无限制） |
+| `imageMaxSize` | number | 5242880 | 图片 base64 大小限制（默认 5MB） |
+| `allowedExtensions` | string | "" | 允许上传的文件扩展名（逗号分隔，空=全部允许） |
+
+> 运行时通过管理员控制台修改的配置会自动保存到 `config.json`。

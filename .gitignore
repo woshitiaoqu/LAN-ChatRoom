@@ -10,3 +10,6 @@ uploads/*
 !uploads/.gitkeep
 downloaded.txt
 test_upload.txt
+client/node_modules/
+client/dist/
+dist/
