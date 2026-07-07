@@ -13,7 +13,6 @@ process.on('uncaughtException', (err) => {
 });
 
 let win, tray;
-let dbReady = false;
 
 function createWindow() {
   win = new BrowserWindow({
@@ -46,14 +45,7 @@ console.error = (...args) => { origErr(...args); appendLog('[ERR] ' + args.join(
 let admin, db, wss, fileAdmin, getTotalMessageCount, queryUserMessages, clearAllMessages, startServer;
 const mod = require('./server.js');
 
-function waitForDb() {
-  return new Promise(resolve => {
-    if (dbReady) return resolve();
-    const check = setInterval(() => {
-      if (mod.db) { dbReady = true; clearInterval(check); resolve(); }
-    }, 100);
-  });
-}
+const waitForDb = mod.waitForDb || (() => Promise.resolve());
 
 function setupAdminHandlers() {
   admin = mod.admin;

@@ -39,6 +39,12 @@ function getMacByIp(ip) {
 
 // SQLite数据库配置
 let db;
+let dbReadyResolve;
+const dbReady = new Promise(resolve => { dbReadyResolve = resolve; });
+async function waitForDb() {
+  if (db) return;
+  await dbReady;
+}
 
 // 初始化SQLite数据库
 async function initDatabase() {
@@ -129,6 +135,8 @@ async function initDatabase() {
   } catch (err) {
     console.error('❌ 数据库初始化失败:', err);
     process.exit(1);
+  } finally {
+    dbReadyResolve();
   }
 }
 
@@ -136,6 +144,7 @@ async function initDatabase() {
 async function saveMessage(message) {
   const startTime = Date.now();
   try {
+    await waitForDb();
     const msgType = message.type || 'text';
     const contentPreview = msgType === 'image' ? '[图片]' : message.content.substring(0, 30);
     console.log(`💾 正在保存消息: [${message.username}] ${contentPreview}${message.content.length > 30 ? '...' : ''}`);
@@ -156,6 +165,7 @@ async function saveMessage(message) {
 async function getRecentMessages(limit = 50) {
   const startTime = Date.now();
   try {
+    await waitForDb();
     const messages = await db.all(
       'SELECT username, content, type, timestamp FROM messages ORDER BY timestamp DESC LIMIT ?',
       [limit]
@@ -173,6 +183,7 @@ async function getRecentMessages(limit = 50) {
 // 查询用户消息记录
 async function queryUserMessages(username, startTime, endTime, limit = 100) {
   try {
+    await waitForDb();
     let query = 'SELECT username, content, timestamp FROM messages WHERE 1=1';
     const params = [];
     
@@ -204,6 +215,7 @@ async function queryUserMessages(username, startTime, endTime, limit = 100) {
 // 清空所有聊天记录
 async function clearAllMessages() {
   try {
+    await waitForDb();
     await db.run('DELETE FROM messages');
     await db.run('VACUUM'); // 清理数据库空间
     return { success: true, message: '所有聊天记录已清空' };
@@ -216,6 +228,7 @@ async function clearAllMessages() {
 // 获取消息总数
 async function getTotalMessageCount() {
   try {
+    await waitForDb();
     const result = await db.get('SELECT COUNT(*) as count FROM messages');
     return result.count;
   } catch (err) {
@@ -949,6 +962,7 @@ app.post('/upload', (req, res) => {
     }
 
     try {
+      await waitForDb();
       if (!req.file) return res.status(400).json({ error: '未选择文件' });
       const { hash, clientId, username } = req.body;
       if (!hash) return res.status(400).json({ error: '缺少文件哈希' });
@@ -991,6 +1005,7 @@ app.post('/upload', (req, res) => {
 
 // 下载文件
 app.get('/download/:id', async (req, res) => {
+  await waitForDb();
   const file = await db.get('SELECT * FROM file_shares WHERE id = ? AND deleted = 0', parseInt(req.params.id));
   if (!file) return res.status(404).json({ error: '文件不存在' });
   if (!file.downloadable) return res.status(403).json({ error: '文件已被禁止下载' });
@@ -1006,6 +1021,7 @@ app.get('/download/:id', async (req, res) => {
 
 // 获取文件列表（按用户权限过滤）
 app.get('/api/files', async (req, res) => {
+  await waitForDb();
   const userClientId = req.query.clientId;
   const files = await db.all('SELECT id, filename, mime_type, size, uploader_name, uploader_id, uploaded_at FROM file_shares WHERE deleted = 0 AND visible = 1 ORDER BY uploaded_at DESC');
   const filtered = files.filter(f => {
@@ -1018,6 +1034,7 @@ app.get('/api/files', async (req, res) => {
 // 上传者删除自己的文件
 app.delete('/api/files/:id', async (req, res) => {
   try {
+    await waitForDb();
     const { username } = req.body;
     if (!username) return res.status(400).json({ error: '缺少用户名' });
 
@@ -1835,8 +1852,8 @@ module.exports = {
   getTotalMessageCount,
   queryUserMessages,
   clearAllMessages,
-  db,
   startServer,
   fileAdmin,
-  serverCleanup
+  serverCleanup,
+  waitForDb
 };
