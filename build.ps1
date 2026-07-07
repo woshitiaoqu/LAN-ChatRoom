@@ -46,14 +46,20 @@ function Build-ServerSetup {
     New-Item -ItemType Directory -Path $Staging -Force | Out-Null
     New-Item -ItemType Directory -Path "$Staging\uploads" -Force | Out-Null
 
-    Copy-Item "$Root\server-app\main.js"    "$Staging\main.js"
-    Copy-Item "$Root\server-app\index.html" "$Staging\index.html"
+    # Electron renderer (log console)
+    Copy-Item "$Root\server-app\main.js"       "$Staging\main.js"
+    Copy-Item "$Root\server-app\console.html"  "$Staging\console.html"
+
+    # Server & web files
     Copy-Item "$Root\server.js"             "$Staging\server.js"
     Copy-Item "$Root\adminConsole.js"       "$Staging\adminConsole.js"
     Copy-Item "$Root\config.json"           "$Staging\config.json"
-    Copy-Item "$Root\*.html"                "$Staging"
+    Copy-Item "$Root\index.html"            "$Staging\index.html"
+    Copy-Item "$Root\game.html"             "$Staging\game.html"
+    Copy-Item "$Root\script.js"             "$Staging\script.js"
+    Copy-Item "$Root\style.css"             "$Staging\style.css"
+    Copy-Item "$Root\game.js"               "$Staging\game.js"
     Copy-Item "$Root\*.js"                  "$Staging"
-    Copy-Item "$Root\*.css"                 "$Staging"
     Copy-Item -Recurse "$Root\games"        "$Staging\games"
 
     $exclude = @('electron','electron-builder','.bin','sqlite3')

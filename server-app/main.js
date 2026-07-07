@@ -12,7 +12,7 @@ function createWindow() {
     show: false,
     webPreferences: { nodeIntegration: true, contextIsolation: false },
   });
-  win.loadFile('index.html');
+  win.loadFile('console.html');
   win.on('close', (e) => {
     if (!app.isQuitting) { e.preventDefault(); win.hide(); }
   });
