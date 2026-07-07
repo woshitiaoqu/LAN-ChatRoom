@@ -1,5 +1,16 @@
-const { app, BrowserWindow, ipcMain, Menu, Tray } = require('electron');
+const { app, BrowserWindow, ipcMain, Menu, Tray, dialog } = require('electron');
 const path = require('path');
+
+// 全局异常拦截（防止原生报错弹窗）
+process.on('uncaughtException', (err) => {
+  const msg = err.message || String(err);
+  if (msg.includes('EADDRINUSE')) {
+    dialog.showErrorBox('端口被占用', `端口 ${msg.match(/:(\d+)/)?.[1] || '?'} 已被其他程序占用。\n\n请先关闭占用该端口的程序，然后重新启动 LAN Chat 服务端。`);
+  } else {
+    dialog.showErrorBox('程序出错了', `发生了意外错误：\n${err.message}\n\n请尝试重新启动软件。`);
+  }
+  app.quit();
+});
 
 let win, tray;
 let dbReady = false;
@@ -82,7 +93,6 @@ function setupAdminHandlers() {
   ipcMain.handle('admin:deleteFile', dbGuard((e, id) => fileAdmin.deleteFile(id)));
 }
 
-// 先注册 IPC 处理器，再创建窗口（避免渲染器过早调用）
 setupAdminHandlers();
 
 app.whenReady().then(() => {
