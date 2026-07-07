@@ -211,6 +211,20 @@ filePanelClose.addEventListener('click', () => filePanel.classList.add('hidden')
 // 上传按钮 → 选择文件
 fileUploadBtn.addEventListener('click', () => fileInput.click());
 
+const fileUploadStatus = document.getElementById('fileUploadStatus');
+const fileStatusText = document.getElementById('fileStatusText');
+const fileProgressFill = document.getElementById('fileProgressFill');
+
+function showFileStatus(text, progress) {
+  fileUploadStatus.classList.remove('hidden');
+  fileStatusText.textContent = text;
+  if (progress != null) fileProgressFill.style.width = progress + '%';
+}
+
+function hideFileStatus() {
+  fileUploadStatus.classList.add('hidden');
+}
+
 // 选择文件后上传（含SHA-256哈希去重）
 fileInput.addEventListener('change', async (e) => {
   const file = e.target.files[0];
@@ -224,12 +238,17 @@ fileInput.addEventListener('change', async (e) => {
     return;
   }
 
+  fileUploadBtn.disabled = true;
+  showFileStatus('正在计算文件哈希...', 10);
+
   try {
     // 计算SHA-256哈希
     const arrayBuffer = await file.arrayBuffer();
     const hashBuffer = await crypto.subtle.digest('SHA-256', arrayBuffer);
     const hashArray = Array.from(new Uint8Array(hashBuffer));
     const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+
+    showFileStatus('正在上传...', 40);
 
     // 上传到服务器
     const formData = new FormData();
@@ -241,8 +260,11 @@ fileInput.addEventListener('change', async (e) => {
     const res = await fetch('/upload', { method: 'POST', body: formData });
     const result = await res.json();
 
+    showFileStatus('处理完成', 100);
+
     if (result.error) {
       addSystemMessage('上传失败: ' + result.error);
+      setTimeout(hideFileStatus, 1500);
       return;
     }
 
@@ -252,9 +274,13 @@ fileInput.addEventListener('change', async (e) => {
       addSystemMessage('你上传了文件: ' + result.filename);
     }
     renderFileList();
+    setTimeout(hideFileStatus, 1500);
   } catch (err) {
     console.error('上传失败:', err);
-    alert('文件上传失败');
+    showFileStatus('上传失败', 0);
+    setTimeout(hideFileStatus, 2000);
+  } finally {
+    fileUploadBtn.disabled = false;
   }
 });
 

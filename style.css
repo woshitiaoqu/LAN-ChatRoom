@@ -1331,4 +1331,9 @@ body.spectator .gomoku-cell:hover {
   border: none; border-radius: 6px; cursor: pointer;
 }
 .file-panel-footer button:hover { background: #357abd; }
+.file-panel-footer button:disabled { background: #ccc; cursor: not-allowed; }
+
+.file-panel-status { padding: 8px 16px; border-top: 1px solid #eee; font-size: 12px; color: #666; }
+.file-panel-status .file-progress-bar { height: 4px; background: #e0e0e0; border-radius: 2px; margin-top: 4px; overflow: hidden; }
+.file-panel-status .file-progress-fill { height: 100%; width: 0%; background: #4a90d9; border-radius: 2px; transition: width 0.3s; }
 
