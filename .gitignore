@@ -19,3 +19,4 @@ dist/client-setup/
 dist/server/
 client/node_modules/
 client/package-lock.json
+server-app/staging/
