@@ -507,10 +507,13 @@ function manageFiles() {
     console.log('│  3. 切换可见性（显示/隐藏）            │');
     console.log('│  4. 切换下载权限                       │');
     console.log('│  5. 设置用户白名单                     │');
+    console.log('│  6. 修改上传大小限制                   │');
     console.log('│  0. 返回                               │');
     console.log('└────────────────────────────────────────┘');
-    console.log(`共 ${files.length} 个文件`);
-    rl.question('请选择 (0-5): ', async (choice) => {
+    const limit = fileAdmin.getMaxFileSize();
+    const limitText = limit > 0 ? (limit / 1024 / 1024).toFixed(0) + 'MB' : '无限制';
+    console.log(`共 ${files.length} 个文件 | 上传限制: ${limitText}`);
+    rl.question('请选择 (0-6): ', async (choice) => {
       if (choice === '1') {
         if (files.length === 0) { console.log('暂无文件'); resolve(); return; }
         console.log('\n📋 文件列表:');
@@ -574,6 +577,34 @@ function manageFiles() {
             console.log('✅ 白名单已更新');
             resolve();
           });
+        });
+      } else if (choice === '6') {
+        const current = fileAdmin.getMaxFileSize();
+        const curText = current > 0 ? (current / 1024 / 1024).toFixed(0) + 'MB' : '无限制';
+        console.log(`\n当前限制: ${curText}`);
+        console.log('输入格式: 数字+单位，如 100MB、1GB、512MB，输入 0 表示无限制');
+        rl.question('请输入新的上传大小限制: ', async (input) => {
+          const s = input.trim().toUpperCase();
+          if (!s) { resolve(); return; }
+          let bytes;
+          if (s === '0') {
+            bytes = 0;
+          } else {
+            const m = s.match(/^(\d+)\s*(B|KB|MB|GB)?$/);
+            if (!m) { console.log('❌ 格式错误，示例: 100MB、1GB、512MB'); resolve(); return; }
+            const num = parseInt(m[1]);
+            const unit = m[2] || 'MB';
+            const mult = { B: 1, KB: 1024, MB: 1024 * 1024, GB: 1024 * 1024 * 1024 };
+            bytes = num * (mult[unit] || mult['MB']);
+          }
+          const result = fileAdmin.setMaxFileSize(bytes);
+          if (result.success) {
+            const newText = bytes > 0 ? (bytes / 1024 / 1024).toFixed(0) + 'MB' : '无限制';
+            console.log(`✅ 上传限制已修改为: ${newText}`);
+          } else {
+            console.log(`❌ ${result.error}`);
+          }
+          resolve();
         });
       } else {
         resolve();

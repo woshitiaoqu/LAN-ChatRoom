@@ -231,10 +231,10 @@ fileInput.addEventListener('change', async (e) => {
   if (!file) return;
   fileInput.value = '';
 
-  // 客户端文件大小校验
-  const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB
+  // 客户端文件大小校验（防误操作，实际限制由服务端控制）
+  const MAX_FILE_SIZE = 2 * 1024 * 1024 * 1024; // 2GB 软限制
   if (file.size > MAX_FILE_SIZE) {
-    alert('文件过大，限制 100MB');
+    alert('文件过大，请选择 2GB 以内的文件');
     return;
   }
 

@@ -228,14 +228,19 @@ app.use(express.static('.'));
 const uploadDir = path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 
+let maxFileSize = 0; // 0 = 无限制（字节）
+const DEFAULT_MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB
+
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, uploadDir),
   filename: (req, file, cb) => cb(null, crypto.randomUUID() + path.extname(file.originalname))
 });
-const upload = multer({
-  storage,
-  limits: { fileSize: 100 * 1024 * 1024 } // 100MB limit
-});
+
+let upload = multer({ storage, limits: { fileSize: maxFileSize || undefined } });
+
+function recreateUpload() {
+  upload = multer({ storage, limits: { fileSize: maxFileSize || undefined } });
+}
 
 // 初始化数据库
 initDatabase().then(() => {}).catch(err => {
@@ -893,12 +898,13 @@ function fixFilename(name) {
   return name;
 }
 
-const uploadMiddleware = upload.single('file');
 app.post('/upload', (req, res) => {
-  uploadMiddleware(req, res, async (err) => {
+  const mw = upload.single('file');
+  mw(req, res, async (err) => {
     if (err) {
       if (err.code === 'LIMIT_FILE_SIZE') {
-        return res.status(413).json({ error: '文件过大，限制 100MB' });
+        const limitMB = maxFileSize > 0 ? (maxFileSize / 1024 / 1024).toFixed(0) : '无限制';
+        return res.status(413).json({ error: `文件过大，当前限制 ${limitMB}MB` });
       }
       console.error('❌ Multer 上传错误:', err);
       return res.status(500).json({ error: '上传失败: ' + err.message });
@@ -992,6 +998,19 @@ const fileAdmin = {
     // userIds: null (all) or JSON array of clientId strings
     await db.run('UPDATE file_shares SET allowed_users = ? WHERE id = ?', userIds ? JSON.stringify(userIds) : null, id);
     broadcastFileEvent('file_updated', { id, allowed_users: userIds });
+  },
+  getMaxFileSize() {
+    return maxFileSize;
+  },
+  getMaxFileSizeMB() {
+    return maxFileSize > 0 ? (maxFileSize / 1024 / 1024) : Infinity;
+  },
+  setMaxFileSize(bytes) {
+    const size = parseInt(bytes);
+    if (isNaN(size) || size < 0) return { error: '无效的大小' };
+    maxFileSize = size;
+    recreateUpload();
+    return { success: true, maxFileSize: size, maxFileSizeMB: size > 0 ? (size / 1024 / 1024) : Infinity };
   }
 };
 
