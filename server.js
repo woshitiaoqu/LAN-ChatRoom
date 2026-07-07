@@ -160,7 +160,7 @@ async function getRecentMessages(limit = 50) {
     
     const duration = Date.now() - startTime;
     console.log(`✅ 成功获取 ${messages.length} 条历史消息 (耗时: ${duration}ms)`);
-    return messages;
+    return messages.map(m => ({ ...m, time: new Date(m.timestamp).toLocaleTimeString() }));
   } catch (err) {
     console.error('❌ 获取历史消息失败:', err);
     return [];
