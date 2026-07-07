@@ -254,7 +254,7 @@ function saveConfig() {
     fs.writeFileSync(configPath, JSON.stringify(merged, null, 2), 'utf8');
   } catch (e) { /* 静默 */ }
 }
-app.use(express.static('.'));
+app.use(express.static(__dirname));
 
 // 文件上传配置
 const uploadDir = path.join(__dirname, 'uploads');
