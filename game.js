@@ -46,23 +46,9 @@ const singlePlayerGames = {
   'typing-master': { title: '⌨️ 打字大师', url: 'games/typing-master/' },
   'whack-mole': { title: '🔨 打地鼠', url: 'games/whack-mole/' },
   'ball-dodger': { title: '💣 弹球躲避', url: 'games/ball-dodger/' },
-  'color-difference': { title: '🎯 色彩分辨', url: 'games/color-difference/' },
-  'fruit-hero': { title: '🍎 水果英雄', url: 'games/fruit-hero/' },
-  'geometry-dash': { title: '📐 几何冲刺', url: 'games/geometry-dash/' },
   'gomoku': { title: '⚫ 五子棋', url: 'games/gomoku/' },
-  'jigsaw-puzzle': { title: '🧩 拼图', url: 'games/jigsaw-puzzle/' },
-  'memory-card': { title: '🃏 记忆卡牌', url: 'games/memory-card/' },
-  'racing': { title: '🏎️ 赛车', url: 'games/racing/' },
-  'rhythm': { title: '🥁 节奏', url: 'games/rhythm/' },
   'rock-paper-scissors': { title: '🤚 石头剪刀布', url: 'games/rock-paper-scissors/' },
-  'shadow-run': { title: '🌑 影子跑酷', url: 'games/shadow-run/' },
-  'sliding-puzzle': { title: '🧊 滑动拼图', url: 'games/sliding-puzzle/' },
-  'space-shooter': { title: '🚀 太空射击', url: 'games/space-shooter/' },
-  'stickman-fight': { title: '👊 火柴人打架', url: 'games/stickman-fight/' },
   'tic-tac-toe': { title: '⭕ 井字棋', url: 'games/tic-tac-toe/' },
-  'tower-defense': { title: '🗼 塔防', url: 'games/tower-defense/' },
-  'typing': { title: '⌨️ 打字游戏', url: 'games/typing/' },
-
 };
 
 // ===== 状态 =====
