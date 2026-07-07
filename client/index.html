@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LAN Chat - 客户端</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="discovery-view">
+    <div class="header">
+      <div class="logo">💬</div>
+      <h1>LAN Chat</h1>
+      <p class="subtitle">局域网聊天室·客户端</p>
+    </div>
+
+    <div class="server-list" id="serverList">
+      <div class="searching" id="searchingIndicator">
+        <div class="spinner"></div>
+        <span>正在搜索局域网服务器...</span>
+      </div>
+    </div>
+
+    <div class="manual-connect">
+      <h3>手动连接</h3>
+      <div class="manual-row">
+        <input type="text" id="manualIp" placeholder="服务器 IP 地址">
+        <input type="number" id="manualPort" value="8082">
+        <button id="manualConnectBtn">连接</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="chat-view" class="hidden">
+    <div class="chat-toolbar">
+      <button id="backBtn">← 返回</button>
+      <span id="connectedServer"></span>
+      <button id="fullscreenBtn" class="toolbar-btn">⛶</button>
+    </div>
+    <webview id="chatWebview" style="flex:1;border:none;width:100%;"></webview>
+  </div>
+
+  <script src="renderer.js"></script>
+</body>
+</html>

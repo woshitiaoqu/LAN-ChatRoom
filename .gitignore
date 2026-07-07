@@ -15,3 +15,7 @@ client/dist/
 dist/
 
 client/package-lock.json
+dist/client-setup/
+dist/server/
+client/node_modules/
+client/package-lock.json

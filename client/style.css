@@ -1,0 +1,39 @@
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:-apple-system,'Microsoft YaHei',sans-serif; background:#f0f2f5; color:#333; height:100vh; display:flex; flex-direction:column; user-select:none; }
+.hidden { display:none !important; }
+
+.header { text-align:center; padding:30px 20px 10px; }
+.logo { font-size:48px; margin-bottom:8px; }
+.header h1 { font-size:24px; color:#007bff; margin-bottom:2px; }
+.subtitle { color:#999; font-size:13px; }
+
+#discovery-view { flex:1; display:flex; flex-direction:column; align-items:center; }
+#chat-view { flex:1; display:flex; flex-direction:column; }
+
+.server-list { width:100%; max-width:480px; margin:15px auto; }
+.searching { text-align:center; padding:30px; color:#999; font-size:14px; }
+.spinner { display:inline-block; width:22px; height:22px; border:3px solid #ddd; border-top-color:#007bff; border-radius:50%; animation:spin .8s linear infinite; margin-bottom:10px; }
+@keyframes spin { to { transform:rotate(360deg); } }
+
+.server-item { display:flex; align-items:center; justify-content:space-between; background:#fff; border-radius:8px; padding:12px 16px; margin-bottom:8px; box-shadow:0 1px 3px rgba(0,0,0,.06); cursor:pointer; transition:box-shadow .2s; }
+.server-item:hover { box-shadow:0 2px 8px rgba(0,0,0,.12); }
+.server-name { font-size:15px; font-weight:600; }
+.server-ip { font-size:12px; color:#888; margin-top:1px; }
+.server-connect-btn { background:#007bff; color:#fff; border:none; border-radius:5px; padding:7px 14px; cursor:pointer; font-size:12px; }
+.server-connect-btn:hover { background:#0056b3; }
+
+.manual-connect { width:100%; max-width:480px; margin:10px auto; padding:16px; background:#fff; border-radius:8px; box-shadow:0 1px 3px rgba(0,0,0,.06); }
+.manual-connect h3 { font-size:13px; color:#666; margin-bottom:10px; }
+.manual-row { display:flex; gap:6px; }
+.manual-row input { flex:1; padding:8px 10px; border:1px solid #ddd; border-radius:5px; font-size:13px; }
+.manual-row input[type=number] { flex:0 0 70px; }
+.manual-row input:focus { outline:none; border-color:#007bff; }
+#manualConnectBtn { background:#28a745; color:#fff; border:none; border-radius:5px; padding:8px 16px; cursor:pointer; font-size:13px; }
+#manualConnectBtn:hover { background:#218838; }
+
+.chat-toolbar { display:flex; align-items:center; gap:8px; padding:6px 12px; background:#fff; border-bottom:1px solid #e0e0e0; -webkit-app-region:drag; }
+.chat-toolbar * { -webkit-app-region:no-drag; }
+#backBtn { background:none; border:1px solid #ddd; border-radius:4px; padding:3px 10px; cursor:pointer; font-size:12px; color:#555; }
+#backBtn:hover { background:#f5f5f5; }
+.toolbar-btn { background:none; border:1px solid #ddd; border-radius:4px; padding:3px 8px; cursor:pointer; font-size:12px; color:#555; margin-left:auto; }
+#connectedServer { font-size:12px; color:#888; }

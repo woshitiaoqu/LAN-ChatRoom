@@ -110,61 +110,41 @@ LAN-ChatRoom/
 - 数据库文件 `chat.db` 包含聊天记录，已在 `.gitignore` 中排除
 - **屏幕共享** 需要浏览器支持 `getDisplayMedia`，通过局域网 IP 访问时可能因非安全上下文被限制，可将地址加入浏览器不安全来源白名单（`edge://flags/#unsafely-treat-insecure-origin-as-secure`）
 
-## 打包为独立软件（便携版）
+## 打包为安装包
 
-无需安装 Node.js，下载即用。
+客户端是 **Windows 安装包**（Electron），服务端是**便携版**（双击启动）。
 
 ```bash
-# 一键打包服务端 + 客户端
-.\build.ps1
-# 或分别打包
-.\build.ps1 server
-.\build.ps1 client
+# 客户端安装包
+cd client
+npm install
+npm run build        # → dist/client-setup/LAN Chat 客户端 Setup 1.1.0.exe
+
+# 服务端便携版
+.\build.ps1 server   # → dist/server/start.bat
 ```
 
-打包后目录结构：
+### 客户端安装流程
 
-```
-dist/
-├── server/                    # 服务端（约 127MB）
-│   ├── node.exe              # Node.js 运行时
-│   ├── server.js             # 聊天服务
-│   ├── adminConsole.js       # 管理员控制台
-│   ├── config.json           # 配置文件
-│   ├── index.html / script.js / style.css  # 前端页面
-│   ├── game.html / game.js   # 游戏大厅
-│   ├── gomoku.js / tictactoe.js / ...      # 联机游戏模块
-│   ├── games/                # 单机游戏（21 款）
-│   ├── node_modules/         # 依赖
-│   ├── uploads/              # 上传文件目录
-│   └── start.bat             ← 双击启动
-│
-└── client/                    # 客户端（约 88MB）
-    ├── node.exe              # Node.js 运行时
-    ├── client.js             # 自动发现脚本
-    └── start.bat             ← 双击启动
-```
+1. 运行 `LAN Chat 客户端 Setup 1.1.0.exe` → 选择安装目录 → 完成
+2. 桌面出现 "LAN Chat 客户端" 快捷方式，双击打开
+3. 窗口自动搜索局域网内的服务端，显示列表：
 
-### 使用方法
+   ```
+   发现 1 台服务器:
+     客厅-PC
+     192.168.1.5:8082     [连接]
+   ```
 
-**服务端**：双击 `dist/server/start.bat`，终端显示服务器地址（如 `http://192.168.1.5:8082`）。
+4. 点击连接 → 在软件窗口内直接聊天，**不弹浏览器**
 
-**客户端**：双击 `dist/client/start.bat`，自动搜索局域网内的服务端，显示列表：
+### 服务端使用
 
-```
-🔍 LAN ChatRoom - 客户端
-发现 1 台服务器:
+双击 `dist/server/start.bat`，终端显示服务地址后保持运行即可。
+也可自己创建快捷方式放到开机启动。
 
-  1. 客厅-PC
-     192.168.1.5:8082
-
-  0. 手动输入 IP 地址
-  q. 退出
-
-请选择服务器序号:
-```
-
-选择序号后自动打开浏览器进入聊天室。如果未自动发现，可选 0 手动输入 IP。
+> 服务端需要安装 Node.js v18+（已在便携版中自带）。
+> 客户端为独立安装包，无需 Node.js。
 
 ### 配置说明（config.json）
 
