@@ -8,11 +8,13 @@ const udpSocket = dgram.createSocket({ type: 'udp4', reuseAddr: true });
 const discoveredServers = new Map();
 
 function createWindow() {
+  const { screen } = require('electron');
+  const bounds = screen.getPrimaryDisplay().workAreaSize;
   mainWindow = new BrowserWindow({
-    width: 1100,
-    height: 750,
-    minWidth: 800,
-    minHeight: 600,
+    width: Math.min(1200, bounds.width),
+    height: Math.min(800, bounds.height),
+    minWidth: 400,
+    minHeight: 300,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -20,10 +22,9 @@ function createWindow() {
       webviewTag: true,
     },
     title: 'LAN Chat - 客户端',
-    icon: path.join(__dirname, 'icon.png'),
     show: false,
   });
-  mainWindow.loadFile('index.html');
+  mainWindow.maximize();
   mainWindow.once('ready-to-show', () => mainWindow.show());
 }
 
