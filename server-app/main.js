@@ -21,7 +21,7 @@ function createWindow() {
     minWidth: 400, minHeight: 250,
     title: 'LAN Chat 服务端',
     show: false,
-    webPreferences: { nodeIntegration: true, contextIsolation: false },
+    webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false },
   });
   win.loadFile('console.html');
   win.on('close', (e) => {

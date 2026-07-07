@@ -61,7 +61,7 @@ body { background: #1a1a2e; color: #e0e0e0; font-family: 'Microsoft YaHei', 'Con
 <div id="toast"></div>
 
 <script>
-const { ipcRenderer } = require('electron');
+const ipcRenderer = window.serverAPI;
 
 // Tab switching
 document.querySelectorAll('#tabs button').forEach(btn => {
